@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MILO'S 3D — Impresión 3D del Futuro</title>
+  <meta name="description" content="MILO'S 3D: figuras y piezas impresas en 3D con tecnología de vanguardia. Diseños articulados, colores personalizables y pedidos directos por WhatsApp.">
+  <meta property="og:title" content="MILO'S 3D — Impresión 3D del Futuro">
+  <meta property="og:description" content="Figuras articuladas y piezas impresas en 3D. Pide la tuya hoy mismo.">
+  <meta property="og:url" content="https://www.milos3d.com">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&family=Rajdhani:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+  <link rel="icon" href="assets/logo.webp" type="image/webp">
+</head>
+<body>
+
+  <!-- Fondo animado de circuitos -->
+  <canvas id="circuit-bg" aria-hidden="true"></canvas>
+  <div class="grid-overlay" aria-hidden="true"></div>
+
+  <!-- Cursor personalizado -->
+  <div class="cursor-dot" aria-hidden="true"></div>
+  <div class="cursor-ring" aria-hidden="true"></div>
+
+  <!-- Navegación -->
+  <header class="nav" id="nav">
+    <a href="#inicio" class="nav-logo" data-hover>
+      <img src="assets/logo.webp" alt="MILO'S 3D" class="nav-logo-img" onerror="this.style.display='none'">
+      <span class="nav-logo-text">MILO'S <em>3D</em></span>
+    </a>
+    <nav class="nav-links">
+      <a href="#catalogo" data-hover>Catálogo</a>
+      <a href="#proceso" data-hover>Cómo pedir</a>
+      <a href="#tecnologia" data-hover>Tecnología</a>
+      <a href="#contacto" data-hover>Contacto</a>
+    </nav>
+    <button class="cart-btn" id="cart-btn" data-hover aria-label="Abrir carrito">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="21" r="1.6"/><circle cx="19" cy="21" r="1.6"/><path d="M2 3h3l2.6 12.6a1.7 1.7 0 0 0 1.7 1.4h9.2a1.7 1.7 0 0 0 1.7-1.3L22 8H6"/></svg>
+      <span class="cart-count" id="cart-count">0</span>
+    </button>
+  </header>
+
+  <!-- HERO -->
+  <section class="hero" id="inicio">
+    <div class="hero-inner">
+      <div class="hero-badge reveal">⚡ IMPRESIONES 3D · FIDGETS · JUGUETES · DECORACIÓN</div>
+      <h1 class="hero-title reveal">
+        <img src="assets/logo.webp" alt="MILO'S 3D" class="hero-logo"
+             onerror="this.style.display='none';this.nextElementSibling.style.display='inline'">
+        <span class="chrome-text" style="display:none">MILO'S 3D</span>
+      </h1>
+      <p class="hero-sub reveal">Del modelo digital a tus manos: fidgets, juguetes y piezas de decoración<br class="desk-only"> impresas con <strong>tecnología de vanguardia</strong>.</p>
+      <div class="hero-cta reveal">
+        <a href="#catalogo" class="btn btn-primary" data-hover data-tilt-btn>Ver catálogo <span class="btn-arrow">→</span></a>
+        <a href="#proceso" class="btn btn-ghost" data-hover>¿Cómo funciona?</a>
+      </div>
+      <div class="hero-chips reveal">
+        <span class="chip" data-hover>◉ PLA / PETG Premium</span>
+        <span class="chip" data-hover>◉ Colores personalizables</span>
+        <span class="chip" data-hover>◉ Pedido directo por WhatsApp</span>
+      </div>
+    </div>
+    <div class="hero-glow" aria-hidden="true"></div>
+    <div class="scroll-hint" aria-hidden="true"><span></span></div>
+  </section>
+
+  <!-- CATÁLOGO -->
+  <section class="section" id="catalogo">
+    <div class="section-head reveal">
+      <span class="section-tag">// CATÁLOGO</span>
+      <h2>Impresiones <span class="accent">disponibles</span></h2>
+      <p>Cada pieza se imprime al momento de tu pedido. Elige tu color favorito.</p>
+    </div>
+    <div class="products-grid" id="products-grid">
+      <!-- Productos cargados desde products.json -->
+    </div>
+  </section>
+
+  <!-- PROCESO -->
+  <section class="section" id="proceso">
+    <div class="section-head reveal">
+      <span class="section-tag">// PROCESO</span>
+      <h2>Pedir es <span class="accent">así de fácil</span></h2>
+    </div>
+    <div class="steps">
+      <div class="step-card reveal" data-tilt data-hover>
+        <div class="step-num">01</div>
+        <h3>Elige tu pieza</h3>
+        <p>Explora el catálogo, selecciona colores y agrega al carrito.</p>
+      </div>
+      <div class="step-card reveal" data-tilt data-hover>
+        <div class="step-num">02</div>
+        <h3>Envía tu pedido</h3>
+        <p>Un clic y tu pedido llega armado directo a nuestro WhatsApp.</p>
+      </div>
+      <div class="step-card reveal" data-tilt data-hover>
+        <div class="step-num">03</div>
+        <h3>Lo imprimimos</h3>
+        <p>Tu pieza se fabrica capa por capa con precisión robótica.</p>
+      </div>
+      <div class="step-card reveal" data-tilt data-hover>
+        <div class="step-num">04</div>
+        <h3>Llega a tus manos</h3>
+        <p>Entrega local o envío a todo México. ¡Listo para jugar!</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- TECNOLOGÍA -->
+  <section class="section" id="tecnologia">
+    <div class="tech-panel reveal" data-tilt>
+      <div class="tech-copy">
+        <span class="section-tag">// TECNOLOGÍA</span>
+        <h2>Fabricación <span class="accent">del futuro</span>, hoy</h2>
+        <p>Trabajamos con impresoras 3D de última generación y materiales premium. Cada diseño pasa por calibración de precisión antes de imprimirse — como un laboratorio de robótica en miniatura trabajando para ti.</p>
+        <ul class="tech-list">
+          <li><span class="tech-dot"></span> Precisión de capa de hasta 0.08 mm</li>
+          <li><span class="tech-dot"></span> Materiales resistentes y seguros</li>
+          <li><span class="tech-dot"></span> Diseños articulados impresos en una sola pieza</li>
+          <li><span class="tech-dot"></span> Personalización total de colores</li>
+        </ul>
+      </div>
+      <div class="tech-visual" aria-hidden="true">
+        <div class="printer-frame">
+          <div class="printer-head"></div>
+          <div class="printer-laser"></div>
+          <div class="printer-obj"></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- CONTACTO / FOOTER -->
+  <footer class="footer" id="contacto">
+    <div class="footer-cta reveal">
+      <h2>¿Buscas algo especial? <span class="accent">Mándanos una foto y te cotizamos.</span></h2>
+      <p>Envíanos una imagen o un ejemplo de lo que buscas — un fidget, un juguete, una pieza de decoración — y te cotizamos sin compromiso.</p>
+      <a href="#" class="btn btn-primary btn-wa" id="footer-wa" data-hover>
+        <svg viewBox="0 0 24 24" fill="currentColor" width="20" height="20"><path d="M12 2a10 10 0 0 0-8.6 15.1L2 22l5.1-1.3A10 10 0 1 0 12 2zm0 18.2a8.2 8.2 0 0 1-4.2-1.2l-.3-.2-3 .8.8-2.9-.2-.3A8.2 8.2 0 1 1 12 20.2zm4.5-6.1c-.2-.1-1.5-.7-1.7-.8-.2-.1-.4-.1-.6.1-.2.2-.6.8-.8 1-.1.2-.3.2-.5.1a6.7 6.7 0 0 1-3.3-2.9c-.3-.4 0-.6.1-.8l.4-.5c.1-.2.1-.3 0-.5l-.8-1.9c-.2-.5-.4-.4-.6-.4h-.5c-.2 0-.5.1-.7.3-.2.3-.9.9-.9 2.2s.9 2.5 1.1 2.7c.1.2 1.9 2.9 4.6 4a15 15 0 0 0 1.5.6c.6.2 1.2.2 1.7.1.5-.1 1.5-.6 1.7-1.2.2-.6.2-1.1.2-1.2-.1-.1-.3-.2-.5-.3z"/></svg>
+        Enviar mi idea por WhatsApp
+      </a>
+    </div>
+    <div class="footer-bar">
+      <span class="footer-brand">MILO'S <em>3D</em> © 2026</span>
+      <div class="footer-links">
+        <a href="#" id="footer-ig" data-hover target="_blank" rel="noopener">Instagram</a>
+        <a href="https://www.milos3d.com" data-hover>www.milos3d.com</a>
+      </div>
+    </div>
+  </footer>
+
+  <!-- CARRITO (drawer) -->
+  <div class="cart-overlay" id="cart-overlay"></div>
+  <aside class="cart-drawer" id="cart-drawer" aria-label="Carrito de compras">
+    <div class="cart-head">
+      <h3>Tu pedido</h3>
+      <button class="cart-close" id="cart-close" data-hover aria-label="Cerrar carrito">✕</button>
+    </div>
+    <div class="cart-items" id="cart-items"></div>
+    <div class="cart-foot">
+      <div class="cart-total-row"><span>Total</span><strong id="cart-total">$0 MXN</strong></div>
+      <p class="cart-note" id="cart-promo-note"></p>
+      <button class="btn btn-primary btn-block" id="cart-checkout" data-hover>
+        Completar pedido por WhatsApp →
+      </button>
+      <p class="cart-note">Al enviar, se abre WhatsApp con tu pedido ya escrito. Confirmamos pago y envío por ahí.</p>
+    </div>
+  </aside>
+
+  <div class="toast" id="toast"></div>
+
+  <script src="app.js"></script>
+</body>
+</html>

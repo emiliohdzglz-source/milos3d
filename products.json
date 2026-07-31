@@ -1,0 +1,32 @@
+{
+  "config": {
+    "whatsapp": "524427831563",
+    "instagram": "MILO3DSTORE",
+    "moneda": "MXN",
+    "envio_nota": "Envíos a todo México · Entrega local en Querétaro"
+  },
+  "productos": [
+    {
+      "id": "amigo-dino",
+      "nombre": "Amigo Dino",
+      "descripcion": "Dinosaurio articulado con balón de fútbol incluido. Cuerpo flexible impreso en una sola pieza — articula, juega y colecciona.",
+      "precio": 150,
+      "imagen": "images/amigo-dino.jpg",
+      "badge": "Oferta: ¡Compra 2 y el 3° es GRATIS!",
+      "colores": ["#4a7c3a", "#f2d33c", "#8aa84f"],
+      "etiquetas": ["Articulado", "Colores personalizables", "Balón incluido"],
+      "visible": true
+    },
+    {
+      "id": "ejemplo-producto",
+      "nombre": "Tu siguiente producto",
+      "descripcion": "Duplica este bloque en products.json, cambia nombre, precio y foto, y aparecerá automáticamente en la tienda.",
+      "precio": 0,
+      "imagen": "images/ejemplo.jpg",
+      "badge": "",
+      "colores": [],
+      "etiquetas": [],
+      "visible": false
+    }
+  ]
+}
