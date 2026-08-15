@@ -31,6 +31,14 @@
         { "nombre": "50 niños", "precio": 4500 },
         { "nombre": "100 niños", "precio": 8000 }
       ],
+      "combos": [
+        "Arcoíris (mixto)",
+        "Pasteles",
+        "Rosas y morados",
+        "Azules y menta",
+        "Rojo, blanco y amarillo",
+        "Sorpréndeme 🎲"
+      ],
       "visible": true
     },
     {
@@ -42,14 +50,31 @@
       "badge": "¡Elige y combina!",
       "colores": [],
       "etiquetas": ["Personalizable", "Fiestas y eventos", "Hecha para durar"],
-      "tipo": "cotizar",
+      "tipo": "config",
       "precios_lista": [
         { "nombre": "Letra", "precio": "$100" },
         { "nombre": "Figura", "precio": "$100" },
         { "nombre": "Dos beads", "precio": "$140" },
         { "nombre": "Cordón", "precio": "$40/m" }
       ],
-      "mensaje_wa": "¡Hola MILO'S 3D! 🌈 Quiero armar mi Friendship Bracelet Gigante.\nNombre para la pulsera: \nFiguras que me gustan: \nColores favoritos: ",
+      "configurador": {
+        "letra_precio": 100,
+        "figura_precio": 100,
+        "beads_precio": 140,
+        "cordon_precio_m": 40,
+        "figuras": ["Corazón", "Moño", "Estrella", "Huella"],
+        "colores": [
+          { "nombre": "Azul", "hex": "#4a90d9" },
+          { "nombre": "Rojo", "hex": "#d93025" },
+          { "nombre": "Blanco", "hex": "#f2f2f2" },
+          { "nombre": "Menta", "hex": "#7fd8c8" },
+          { "nombre": "Amarillo", "hex": "#f2c94c" },
+          { "nombre": "Rosa mexicano", "hex": "#e91e78" },
+          { "nombre": "Rosa claro", "hex": "#f7a8c4" },
+          { "nombre": "Morado", "hex": "#8e6bc8" },
+          { "nombre": "Lila", "hex": "#b9a6e0" }
+        ]
+      },
       "visible": true
     },
     {

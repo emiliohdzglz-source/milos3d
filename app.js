@@ -56,7 +56,18 @@ function renderProducts() {
           <div class="product-packs">
             ${p.paquetes.map((pk, i) => `<button class="pack-btn ${i === 0 ? "selected" : ""}" data-pack="${pk.nombre}" data-hover>${pk.nombre}</button>`).join("")}
           </div>` : ""}
-        ${p.tipo === "cotizar" ? `
+        ${p.combos?.length ? `
+          <div class="product-combo">
+            <span class="color-label">Combinación de colores:</span>
+            <select class="combo-select" data-hover>${p.combos.map(c => `<option>${c}</option>`).join("")}</select>
+          </div>` : ""}
+        ${p.tipo === "config" ? `
+          <div class="price-list">
+            ${(p.precios_lista || []).map(x => `<span class="price-item">${x.nombre} <strong>${x.precio}</strong></span>`).join("")}
+          </div>
+          <div class="product-foot">
+            <button class="btn-add btn-quote" data-hover data-config="${p.id}">🎨 Diseñar mi pulsera</button>
+          </div>` : p.tipo === "cotizar" ? `
           <div class="price-list">
             ${(p.precios_lista || []).map(x => `<span class="price-item">${x.nombre} <strong>${x.precio}</strong></span>`).join("")}
           </div>
@@ -100,7 +111,8 @@ function renderProducts() {
       const color = card.querySelector(".color-dot.selected")?.dataset.color || null;
       const packName = card.querySelector(".pack-btn.selected")?.dataset.pack || null;
       const pack = packName && p.paquetes ? p.paquetes.find(k => k.nombre === packName) : null;
-      addToCart(p, color, pack);
+      const nota = card.querySelector(".combo-select")?.value || null;
+      addToCart(p, color, pack, nota);
     });
   });
 
@@ -110,6 +122,14 @@ function renderProducts() {
       const p = PRODUCTOS.find(x => x.id === btn.dataset.quote);
       const msg = p.mensaje_wa || `¡Hola MILO'S 3D! Quiero cotizar: ${p.nombre}`;
       window.open(`https://wa.me/${CONFIG.whatsapp}?text=${encodeURIComponent(msg)}`, "_blank");
+    });
+  });
+
+  // Abrir configurador
+  grid.querySelectorAll("[data-config]").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const p = PRODUCTOS.find(x => x.id === btn.dataset.config);
+      openConfigurator(p);
     });
   });
 
@@ -126,22 +146,30 @@ function colorName(hex) {
 }
 
 /* ---------- Carrito ---------- */
-function cartKey(p, color, pack) { return p.id + "::" + (color || "-") + "::" + (pack?.nombre || "-"); }
+function cartKey(p, color, pack, nota) {
+  return p.id + "::" + (color || "-") + "::" + (pack?.nombre || "-") + "::" + (nota || "-");
+}
 
-function itemPrice(i) { return i.pack ? i.pack.precio : i.producto.precio; }
+function itemPrice(i) {
+  if (i.custom) return i.custom.precio;
+  return i.pack ? i.pack.precio : i.producto.precio;
+}
 
-function addToCart(p, color, pack) {
-  const key = cartKey(p, color, pack);
+function addToCart(p, color, pack, nota) {
+  const key = cartKey(p, color, pack, nota);
   const item = cart.get(key);
   if (item) item.qty++;
-  else cart.set(key, { producto: p, color, pack, qty: 1 });
+  else cart.set(key, { producto: p, color, pack, nota: nota || null, qty: 1 });
   saveCart();
   updateCartUI();
   showToast(`✓ ${p.nombre}${pack ? " (" + pack.nombre + ")" : ""} agregado al pedido`);
 }
 
 function saveCart() {
-  const data = [...cart.values()].map(i => ({ id: i.producto.id, color: i.color, pack: i.pack?.nombre || null, qty: i.qty }));
+  const data = [...cart.entries()].map(([key, i]) => ({
+    key, id: i.producto.id, color: i.color, pack: i.pack?.nombre || null,
+    nota: i.nota || null, custom: i.custom || null, qty: i.qty
+  }));
   localStorage.setItem("milos3d_cart", JSON.stringify(data));
 }
 
@@ -152,7 +180,7 @@ function restoreCart() {
       const p = PRODUCTOS.find(x => x.id === i.id);
       if (!p) return;
       const pack = i.pack && p.paquetes ? p.paquetes.find(k => k.nombre === i.pack) : null;
-      cart.set(cartKey(p, i.color, pack), { producto: p, color: i.color, pack, qty: i.qty });
+      cart.set(i.key, { producto: p, color: i.color, pack, nota: i.nota || null, custom: i.custom || null, qty: i.qty });
     });
   } catch (e) { /* carrito vacío */ }
 }
@@ -166,11 +194,13 @@ function updateCartUI() {
   if (!items.length) {
     container.innerHTML = '<p class="cart-empty">Tu carrito está vacío.<br>¡Agrega tu primera impresión! 🤖</p>';
   } else {
-    container.innerHTML = items.map(i => `
-      <div class="cart-item" data-key="${cartKey(i.producto, i.color, i.pack)}">
+    container.innerHTML = [...cart.entries()].map(([key, i]) => `
+      <div class="cart-item" data-key="${key}">
         <div>
           <div class="cart-item-name">${i.producto.nombre}</div>
           ${i.pack ? `<div class="cart-item-meta">📦 Paquete ${i.pack.nombre}</div>` : ""}
+          ${i.nota ? `<div class="cart-item-meta">🎨 ${i.nota}</div>` : ""}
+          ${i.custom ? `<div class="cart-item-meta">${customResumen(i.custom)}</div>` : ""}
           ${i.color ? `<div class="cart-item-meta"><span class="mini-dot" style="background:${i.color}"></span>${colorName(i.color)}</div>` : ""}
           <div class="cart-qty">
             <button data-hover data-dec>−</button>
@@ -218,8 +248,16 @@ function checkout() {
   items.forEach(i => {
     msg += `▸ ${i.qty}× ${i.producto.nombre}`;
     if (i.pack) msg += ` [Paquete ${i.pack.nombre}]`;
+    if (i.nota) msg += ` [Colores: ${i.nota}]`;
     if (i.color) msg += ` (${colorName(i.color)})`;
     msg += ` — ${money(itemPrice(i) * i.qty)}\n`;
+    if (i.custom) {
+      const c = i.custom;
+      if (c.letras.length) msg += `   🔤 Letras: ${c.letras.join("-")}\n`;
+      if (c.figuras.length) msg += `   🎀 Figuras: ${c.figuras.map(f => `${f.figura} (${f.color})`).join(", ")}\n`;
+      if (c.beads.length) msg += `   ⚪ Beads: ${c.beads.map(b => `par ${b}`).join(", ")}\n`;
+      msg += `   🪢 Cordón: ${c.metros} m\n`;
+    }
   });
   const total = items.reduce((s, i) => s + itemPrice(i) * i.qty, 0);
   const dinoQty = items.filter(i => i.producto.id === "amigo-dino").reduce((s, i) => s + i.qty, 0);
@@ -232,6 +270,133 @@ function checkout() {
 
   window.open(`https://wa.me/${CONFIG.whatsapp}?text=${encodeURIComponent(msg)}`, "_blank");
 }
+
+/* ---------- Configurador (pulsera personalizada) ---------- */
+let cfgProduct = null;
+let cfgState = null;
+let cfgCounter = Number(localStorage.getItem("milos3d_cfg_n") || 0);
+
+function customResumen(c) {
+  const partes = [];
+  if (c.letras?.length) partes.push(`🔤 ${c.letras.join("")}`);
+  if (c.figuras?.length) partes.push(`🎀 ${c.figuras.length} figura(s)`);
+  if (c.beads?.length) partes.push(`⚪ ${c.beads.length} par(es)`);
+  partes.push(`🪢 ${c.metros} m`);
+  return partes.join(" · ");
+}
+
+function openConfigurator(p) {
+  cfgProduct = p;
+  const cfg = p.configurador;
+  cfgState = { letras: [], figuras: [], beads: [], metros: 1 };
+  $("#config-title").textContent = "🎨 " + p.nombre;
+  const colorOpts = cfg.colores.map(c => `<option value="${c.nombre}">${c.nombre}</option>`).join("");
+  const abc = "ABCDEFGHIJKLMNÑOPQRSTUVWXYZ".split("");
+  $("#config-body").innerHTML = `
+    <div class="config-section">
+      <h4>🔤 Letras de tu nombre <small>$${cfg.letra_precio} c/u</small></h4>
+      <div class="config-row">
+        <select id="cfg-letra" data-hover>${abc.map(l => `<option>${l}</option>`).join("")}</select>
+        <button class="btn-mini" id="cfg-add-letra" data-hover>+ Agregar letra</button>
+      </div>
+      <div class="chips" id="chips-letras"></div>
+    </div>
+    <div class="config-section">
+      <h4>🎀 Figuras <small>$${cfg.figura_precio} c/u</small></h4>
+      <div class="config-row">
+        <select id="cfg-figura" data-hover>${cfg.figuras.map(f => `<option>${f}</option>`).join("")}</select>
+        <select id="cfg-figura-color" data-hover>${colorOpts}</select>
+        <button class="btn-mini" id="cfg-add-figura" data-hover>+ Agregar</button>
+      </div>
+      <div class="chips" id="chips-figuras"></div>
+    </div>
+    <div class="config-section">
+      <h4>⚪ Beads <small>$${cfg.beads_precio} el par</small></h4>
+      <div class="config-row">
+        <select id="cfg-bead-color" data-hover>${colorOpts}</select>
+        <button class="btn-mini" id="cfg-add-bead" data-hover>+ Agregar par</button>
+      </div>
+      <div class="chips" id="chips-beads"></div>
+    </div>
+    <div class="config-section">
+      <h4>🪢 Cordón <small>$${cfg.cordon_precio_m} por metro</small></h4>
+      <div class="config-row">
+        <button class="btn-mini" id="cfg-m-dec" data-hover>−</button>
+        <span class="cfg-metros" id="cfg-metros">1 m</span>
+        <button class="btn-mini" id="cfg-m-inc" data-hover>+</button>
+      </div>
+    </div>`;
+
+  $("#cfg-add-letra").addEventListener("click", () => {
+    cfgState.letras.push($("#cfg-letra").value);
+    renderCfg();
+  });
+  $("#cfg-add-figura").addEventListener("click", () => {
+    cfgState.figuras.push({ figura: $("#cfg-figura").value, color: $("#cfg-figura-color").value });
+    renderCfg();
+  });
+  $("#cfg-add-bead").addEventListener("click", () => {
+    cfgState.beads.push($("#cfg-bead-color").value);
+    renderCfg();
+  });
+  $("#cfg-m-dec").addEventListener("click", () => { if (cfgState.metros > 1) { cfgState.metros--; renderCfg(); } });
+  $("#cfg-m-inc").addEventListener("click", () => { cfgState.metros++; renderCfg(); });
+
+  renderCfg();
+  toggleConfig(true);
+}
+
+function colorHex(nombre) {
+  return cfgProduct?.configurador?.colores.find(c => c.nombre === nombre)?.hex || "#888";
+}
+
+function cfgTotal() {
+  const cfg = cfgProduct.configurador;
+  return cfgState.letras.length * cfg.letra_precio
+    + cfgState.figuras.length * cfg.figura_precio
+    + cfgState.beads.length * cfg.beads_precio
+    + cfgState.metros * cfg.cordon_precio_m;
+}
+
+function renderCfg() {
+  const chip = (label, dot, onIdx, idx) =>
+    `<span class="chip-sel" data-list="${onIdx}" data-idx="${idx}">${dot ? `<span class="mini-dot" style="background:${dot}"></span>` : ""}${label} <b>✕</b></span>`;
+  $("#chips-letras").innerHTML = cfgState.letras.map((l, i) => chip(l, null, "letras", i)).join("") || '<span class="chips-empty">Aún sin letras</span>';
+  $("#chips-figuras").innerHTML = cfgState.figuras.map((f, i) => chip(`${f.figura}`, colorHex(f.color), "figuras", i)).join("") || '<span class="chips-empty">Aún sin figuras</span>';
+  $("#chips-beads").innerHTML = cfgState.beads.map((b, i) => chip("Par", colorHex(b), "beads", i)).join("") || '<span class="chips-empty">Aún sin beads</span>';
+  $("#cfg-metros").textContent = cfgState.metros + " m";
+  $("#config-total").textContent = money(cfgTotal());
+  document.querySelectorAll(".chip-sel").forEach(el => {
+    el.addEventListener("click", () => {
+      cfgState[el.dataset.list].splice(Number(el.dataset.idx), 1);
+      renderCfg();
+    });
+  });
+  refreshHoverTargets();
+}
+
+function toggleConfig(open) {
+  $("#config-modal").classList.toggle("open", open);
+  $("#config-overlay").classList.toggle("open", open);
+}
+
+$("#config-close").addEventListener("click", () => toggleConfig(false));
+$("#config-overlay").addEventListener("click", () => toggleConfig(false));
+$("#config-add").addEventListener("click", () => {
+  if (!cfgState.letras.length && !cfgState.figuras.length && !cfgState.beads.length) {
+    showToast("Agrega al menos una letra, figura o bead 🎨");
+    return;
+  }
+  cfgCounter++;
+  localStorage.setItem("milos3d_cfg_n", String(cfgCounter));
+  const key = cfgProduct.id + "::custom::" + cfgCounter;
+  cart.set(key, { producto: cfgProduct, color: null, pack: null, nota: null, custom: { ...cfgState, precio: cfgTotal() }, qty: 1 });
+  saveCart();
+  updateCartUI();
+  toggleConfig(false);
+  toggleCart(true);
+  showToast("✓ ¡Tu pulsera personalizada está en el pedido!");
+});
 
 /* ---------- UI general ---------- */
 function setupLinks() {
@@ -303,9 +468,9 @@ function setupTilt() {
       const r = card.getBoundingClientRect();
       const px = (e.clientX - r.left) / r.width;
       const py = (e.clientY - r.top) / r.height;
-      const rotY = (px - 0.5) * 14;
-      const rotX = (0.5 - py) * 10;
-      card.style.transform = `rotateX(${rotX}deg) rotateY(${rotY}deg) translateZ(6px)`;
+      const rotY = (px - 0.5) * 18;
+      const rotX = (0.5 - py) * 13;
+      card.style.transform = `rotateX(${rotX}deg) rotateY(${rotY}deg) translateZ(14px) scale(1.02)`;
       card.style.setProperty("--mx", `${px * 100}%`);
       card.style.setProperty("--my", `${py * 100}%`);
     });

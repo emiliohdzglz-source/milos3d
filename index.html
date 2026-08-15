@@ -63,6 +63,11 @@
       </div>
     </div>
     <div class="hero-glow" aria-hidden="true"></div>
+    <div class="cube-field" aria-hidden="true">
+      <div class="cube3d c1"><i></i><i></i><i></i><i></i><i></i><i></i></div>
+      <div class="cube3d c2"><i></i><i></i><i></i><i></i><i></i><i></i></div>
+      <div class="cube3d c3"><i></i><i></i><i></i><i></i><i></i><i></i></div>
+    </div>
     <div class="scroll-hint" aria-hidden="true"><span></span></div>
   </section>
 
@@ -169,6 +174,20 @@
       <p class="cart-note">Al enviar, se abre WhatsApp con tu pedido ya escrito. Confirmamos pago y envío por ahí.</p>
     </div>
   </aside>
+
+  <!-- CONFIGURADOR de producto personalizado -->
+  <div class="config-overlay" id="config-overlay"></div>
+  <div class="config-modal" id="config-modal" role="dialog" aria-label="Personaliza tu producto">
+    <div class="config-head">
+      <h3 id="config-title">Personaliza tu pulsera</h3>
+      <button class="cart-close" id="config-close" data-hover aria-label="Cerrar">✕</button>
+    </div>
+    <div class="config-body" id="config-body"></div>
+    <div class="config-foot">
+      <div class="cart-total-row"><span>Total</span><strong id="config-total">$0 MXN</strong></div>
+      <button class="btn btn-primary btn-block" id="config-add" data-hover>Agregar al pedido →</button>
+    </div>
+  </div>
 
   <div class="toast" id="toast"></div>
 
