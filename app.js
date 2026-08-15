@@ -39,10 +39,10 @@ function renderProducts() {
     <article class="product-card reveal" data-tilt data-id="${p.id}">
       <div class="glare"></div>
       ${p.badge ? `<div class="product-badge">${p.badge}</div>` : ""}
-      <div class="product-img">
+      <a class="product-img" href="${p.flyer || p.imagen}" target="_blank" rel="noopener" data-hover title="Ver imagen completa">
         <img src="${p.imagen}" alt="${p.nombre}" loading="lazy"
              onerror="this.replaceWith(Object.assign(document.createElement('div'),{className:'img-fallback',textContent:'🦖'}))">
-      </div>
+      </a>
       <div class="product-body">
         <h3 class="product-name">${p.nombre}</h3>
         <p class="product-desc">${p.descripcion}</p>
@@ -52,20 +52,41 @@ function renderProducts() {
             <span class="color-label">Color:</span>
             ${p.colores.map((c, i) => `<button class="color-dot ${i === 0 ? "selected" : ""}" data-color="${c}" style="background:${c}" data-hover aria-label="Color ${c}"></button>`).join("")}
           </div>` : ""}
-        <div class="product-foot">
-          <div class="product-price">${money(p.precio)} <small>c/u</small></div>
-          <button class="btn-add" data-hover data-add="${p.id}">+ Agregar</button>
-        </div>
+        ${p.paquetes?.length ? `
+          <div class="product-packs">
+            ${p.paquetes.map((pk, i) => `<button class="pack-btn ${i === 0 ? "selected" : ""}" data-pack="${pk.nombre}" data-hover>${pk.nombre}</button>`).join("")}
+          </div>` : ""}
+        ${p.tipo === "cotizar" ? `
+          <div class="price-list">
+            ${(p.precios_lista || []).map(x => `<span class="price-item">${x.nombre} <strong>${x.precio}</strong></span>`).join("")}
+          </div>
+          <div class="product-foot">
+            <button class="btn-add btn-quote" data-hover data-quote="${p.id}">💬 Cotizar por WhatsApp</button>
+          </div>` : `
+          <div class="product-foot">
+            <div class="product-price" data-price>${money(p.paquetes?.length ? p.paquetes[0].precio : p.precio)} <small>${p.paquetes?.length ? "paquete" : "c/u"}</small></div>
+            <button class="btn-add" data-hover data-add="${p.id}">+ Agregar</button>
+          </div>`}
       </div>
     </article>
   `).join("");
 
-  // Selección de color
+  // Selección de color y paquete
   grid.querySelectorAll(".product-card").forEach(card => {
+    const p = PRODUCTOS.find(x => x.id === card.dataset.id);
     card.querySelectorAll(".color-dot").forEach(dot => {
       dot.addEventListener("click", () => {
         card.querySelectorAll(".color-dot").forEach(d => d.classList.remove("selected"));
         dot.classList.add("selected");
+      });
+    });
+    card.querySelectorAll(".pack-btn").forEach(btn => {
+      btn.addEventListener("click", () => {
+        card.querySelectorAll(".pack-btn").forEach(b => b.classList.remove("selected"));
+        btn.classList.add("selected");
+        const pk = p.paquetes.find(k => k.nombre === btn.dataset.pack);
+        const priceEl = card.querySelector("[data-price]");
+        if (priceEl && pk) priceEl.innerHTML = `${money(pk.precio)} <small>paquete</small>`;
       });
     });
   });
@@ -77,7 +98,18 @@ function renderProducts() {
       const p = PRODUCTOS.find(x => x.id === id);
       const card = btn.closest(".product-card");
       const color = card.querySelector(".color-dot.selected")?.dataset.color || null;
-      addToCart(p, color);
+      const packName = card.querySelector(".pack-btn.selected")?.dataset.pack || null;
+      const pack = packName && p.paquetes ? p.paquetes.find(k => k.nombre === packName) : null;
+      addToCart(p, color, pack);
+    });
+  });
+
+  // Cotizar por WhatsApp
+  grid.querySelectorAll("[data-quote]").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const p = PRODUCTOS.find(x => x.id === btn.dataset.quote);
+      const msg = p.mensaje_wa || `¡Hola MILO'S 3D! Quiero cotizar: ${p.nombre}`;
+      window.open(`https://wa.me/${CONFIG.whatsapp}?text=${encodeURIComponent(msg)}`, "_blank");
     });
   });
 
@@ -94,20 +126,22 @@ function colorName(hex) {
 }
 
 /* ---------- Carrito ---------- */
-function cartKey(p, color) { return p.id + "::" + (color || "-"); }
+function cartKey(p, color, pack) { return p.id + "::" + (color || "-") + "::" + (pack?.nombre || "-"); }
 
-function addToCart(p, color) {
-  const key = cartKey(p, color);
+function itemPrice(i) { return i.pack ? i.pack.precio : i.producto.precio; }
+
+function addToCart(p, color, pack) {
+  const key = cartKey(p, color, pack);
   const item = cart.get(key);
   if (item) item.qty++;
-  else cart.set(key, { producto: p, color, qty: 1 });
+  else cart.set(key, { producto: p, color, pack, qty: 1 });
   saveCart();
   updateCartUI();
-  showToast(`✓ ${p.nombre} agregado al pedido`);
+  showToast(`✓ ${p.nombre}${pack ? " (" + pack.nombre + ")" : ""} agregado al pedido`);
 }
 
 function saveCart() {
-  const data = [...cart.values()].map(i => ({ id: i.producto.id, color: i.color, qty: i.qty }));
+  const data = [...cart.values()].map(i => ({ id: i.producto.id, color: i.color, pack: i.pack?.nombre || null, qty: i.qty }));
   localStorage.setItem("milos3d_cart", JSON.stringify(data));
 }
 
@@ -116,7 +150,9 @@ function restoreCart() {
     const data = JSON.parse(localStorage.getItem("milos3d_cart") || "[]");
     data.forEach(i => {
       const p = PRODUCTOS.find(x => x.id === i.id);
-      if (p) cart.set(cartKey(p, i.color), { producto: p, color: i.color, qty: i.qty });
+      if (!p) return;
+      const pack = i.pack && p.paquetes ? p.paquetes.find(k => k.nombre === i.pack) : null;
+      cart.set(cartKey(p, i.color, pack), { producto: p, color: i.color, pack, qty: i.qty });
     });
   } catch (e) { /* carrito vacío */ }
 }
@@ -131,9 +167,10 @@ function updateCartUI() {
     container.innerHTML = '<p class="cart-empty">Tu carrito está vacío.<br>¡Agrega tu primera impresión! 🤖</p>';
   } else {
     container.innerHTML = items.map(i => `
-      <div class="cart-item" data-key="${cartKey(i.producto, i.color)}">
+      <div class="cart-item" data-key="${cartKey(i.producto, i.color, i.pack)}">
         <div>
           <div class="cart-item-name">${i.producto.nombre}</div>
+          ${i.pack ? `<div class="cart-item-meta">📦 Paquete ${i.pack.nombre}</div>` : ""}
           ${i.color ? `<div class="cart-item-meta"><span class="mini-dot" style="background:${i.color}"></span>${colorName(i.color)}</div>` : ""}
           <div class="cart-qty">
             <button data-hover data-dec>−</button>
@@ -141,7 +178,7 @@ function updateCartUI() {
             <button data-hover data-inc>+</button>
           </div>
         </div>
-        <div class="cart-item-price">${money(i.producto.precio * i.qty)}</div>
+        <div class="cart-item-price">${money(itemPrice(i) * i.qty)}</div>
         <button class="cart-item-remove" data-hover data-remove>Quitar</button>
       </div>
     `).join("");
@@ -159,7 +196,7 @@ function updateCartUI() {
   }
 
   // Total + promo 3x2 del Amigo Dino
-  const total = items.reduce((s, i) => s + i.producto.precio * i.qty, 0);
+  const total = items.reduce((s, i) => s + itemPrice(i) * i.qty, 0);
   const dinoQty = items.filter(i => i.producto.id === "amigo-dino").reduce((s, i) => s + i.qty, 0);
   const gratis = Math.floor(dinoQty / 3);
   const dino = PRODUCTOS.find(p => p.id === "amigo-dino");
@@ -180,10 +217,11 @@ function checkout() {
   let msg = "¡Hola MILO'S 3D! 🤖 Quiero hacer este pedido:\n\n";
   items.forEach(i => {
     msg += `▸ ${i.qty}× ${i.producto.nombre}`;
+    if (i.pack) msg += ` [Paquete ${i.pack.nombre}]`;
     if (i.color) msg += ` (${colorName(i.color)})`;
-    msg += ` — ${money(i.producto.precio * i.qty)}\n`;
+    msg += ` — ${money(itemPrice(i) * i.qty)}\n`;
   });
-  const total = items.reduce((s, i) => s + i.producto.precio * i.qty, 0);
+  const total = items.reduce((s, i) => s + itemPrice(i) * i.qty, 0);
   const dinoQty = items.filter(i => i.producto.id === "amigo-dino").reduce((s, i) => s + i.qty, 0);
   const gratis = Math.floor(dinoQty / 3);
   const dino = PRODUCTOS.find(p => p.id === "amigo-dino");

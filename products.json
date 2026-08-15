@@ -18,6 +18,41 @@
       "visible": true
     },
     {
+      "id": "fidget-clickers",
+      "nombre": "Fidget Clickers",
+      "descripcion": "Cubos clicker con letras para armar nombres y palabras. ¡El detalle que todos quieren! Alivia el estrés, mejora la concentración y es el recuerdo perfecto para fiestas, cumpleaños y eventos.",
+      "imagen": "images/fidget-clickers.jpg",
+      "flyer": "images/flyer-fidget-clickers.jpg",
+      "badge": "¡Ideal para fiestas y eventos!",
+      "colores": [],
+      "etiquetas": ["Colores divertidos", "Personalizable con nombre", "Anti-estrés"],
+      "paquetes": [
+        { "nombre": "25 niños", "precio": 2500 },
+        { "nombre": "50 niños", "precio": 4500 },
+        { "nombre": "100 niños", "precio": 8000 }
+      ],
+      "visible": true
+    },
+    {
+      "id": "friendship-bracelet",
+      "nombre": "Friendship Bracelet Gigante",
+      "descripcion": "¡Diseña tu pulsera única y GIGANTE! Personalízala con tu nombre, figuras y colores favoritos. Recuerdos únicos, llamativos y hechos para durar.",
+      "imagen": "images/friendship-bracelet.jpg",
+      "flyer": "images/flyer-friendship-bracelet.jpg",
+      "badge": "¡Elige y combina!",
+      "colores": [],
+      "etiquetas": ["Personalizable", "Fiestas y eventos", "Hecha para durar"],
+      "tipo": "cotizar",
+      "precios_lista": [
+        { "nombre": "Letra", "precio": "$100" },
+        { "nombre": "Figura", "precio": "$100" },
+        { "nombre": "Dos beads", "precio": "$140" },
+        { "nombre": "Cordón", "precio": "$40/m" }
+      ],
+      "mensaje_wa": "¡Hola MILO'S 3D! 🌈 Quiero armar mi Friendship Bracelet Gigante.\nNombre para la pulsera: \nFiguras que me gustan: \nColores favoritos: ",
+      "visible": true
+    },
+    {
       "id": "ejemplo-producto",
       "nombre": "Tu siguiente producto",
       "descripcion": "Duplica este bloque en products.json, cambia nombre, precio y foto, y aparecerá automáticamente en la tienda.",
