@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow">
+<title>MILO'S 3D — Panel</title>
+<meta name="theme-color" content="#04060e">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="../assets/logo.webp" type="image/webp">
+<link rel="apple-touch-icon" href="../assets/logo.png">
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@600;800&family=Rajdhani:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="admin.css">
+</head>
+<body>
+
+<!-- ===== Candado ===== -->
+<div id="lock" class="lock">
+  <div class="lock-box">
+    <img src="../assets/logo.webp" alt="" class="lock-logo" onerror="this.style.display='none'">
+    <h1>MILO'S <em>3D</em></h1>
+    <p class="muted">Panel de la familia</p>
+    <input type="password" id="lock-pin" inputmode="numeric" placeholder="PIN" autocomplete="off">
+    <button class="btn btn-primary btn-block" id="lock-go">Entrar</button>
+    <p class="lock-hint muted" id="lock-hint">Primera vez: escribe el PIN que quieras y quedará guardado en este celular.</p>
+  </div>
+</div>
+
+<!-- ===== App ===== -->
+<div id="app" hidden>
+
+  <header class="topbar">
+    <span class="brand">MILO'S <em>3D</em></span>
+    <span class="topbar-right">
+      <span class="pill" id="sync-pill">sin conectar</span>
+      <button class="icon-btn" id="btn-lock" title="Bloquear">🔒</button>
+    </span>
+  </header>
+
+  <main id="views">
+
+    <!-- ---------- NUEVO PRODUCTO ---------- -->
+    <section class="view" id="view-nuevo">
+      <h2 class="view-title">Nuevo producto</h2>
+
+      <div class="card">
+        <h3 class="card-title">1 · Foto del diseño</h3>
+        <div class="photo-slot" id="photo-slot">
+          <div class="photo-empty" id="photo-empty">
+            <span class="photo-ico">📷</span>
+            <span>Toma la foto o sube el screenshot</span>
+          </div>
+          <img id="photo-preview" alt="" hidden>
+        </div>
+        <div class="row">
+          <label class="btn btn-ghost grow">
+            📷 Cámara
+            <input type="file" accept="image/*" capture="environment" id="in-camera" hidden>
+          </label>
+          <label class="btn btn-ghost grow">
+            🖼️ Galería
+            <input type="file" accept="image/*" id="in-file" hidden>
+          </label>
+        </div>
+        <p class="hint" id="photo-info"></p>
+      </div>
+
+      <div class="card">
+        <h3 class="card-title">2 · Liga del diseño</h3>
+        <input type="url" id="f-link" placeholder="https://makerworld.com/... o liga de Bambu Handy" inputmode="url">
+        <button class="btn btn-ghost btn-block" id="btn-leer">🔎 Leer datos de la liga</button>
+        <p class="hint" id="link-status"></p>
+
+        <details class="det">
+          <summary>Pegar datos del laminador (lo más rápido y seguro)</summary>
+          <p class="hint">Copia el texto de Bambu Studio / Handy (donde dice los gramos y el tiempo) y pégalo aquí. Yo saco los números solo.</p>
+          <textarea id="f-paste" rows="4" placeholder="Ej: Total filament: 23.5 g&#10;Estimated time: 2h 14m"></textarea>
+          <button class="btn btn-ghost btn-block" id="btn-parse">✨ Sacar gramos y tiempo</button>
+        </details>
+      </div>
+
+      <div class="card">
+        <h3 class="card-title">3 · Datos de impresión</h3>
+        <div class="grid2">
+          <label>Gramos de filamento
+            <input type="number" id="f-gramos" inputmode="decimal" step="0.1" min="0" placeholder="0">
+          </label>
+          <label>Piezas por impresión
+            <input type="number" id="f-piezas" inputmode="numeric" min="1" value="1">
+          </label>
+          <label>Horas
+            <input type="number" id="f-horas" inputmode="numeric" min="0" value="0">
+          </label>
+          <label>Minutos
+            <input type="number" id="f-min" inputmode="numeric" min="0" max="59" value="0">
+          </label>
+          <label>Minutos de armado
+            <input type="number" id="f-mano" inputmode="numeric" min="0" value="0">
+          </label>
+          <label>Material
+            <select id="f-material"></select>
+          </label>
+        </div>
+      </div>
+
+      <div class="card calc" id="calc-card">
+        <h3 class="card-title">4 · Costo y precio</h3>
+        <div id="calc-breakdown" class="breakdown"></div>
+        <div class="price-final">
+          <div>
+            <span class="muted small">Precio sugerido</span>
+            <strong id="calc-precio">$0</strong>
+          </div>
+          <label class="override">
+            Precio final
+            <input type="number" id="f-precio" inputmode="numeric" min="0" placeholder="auto">
+          </label>
+        </div>
+        <p class="hint" id="calc-margen"></p>
+      </div>
+
+      <div class="card">
+        <h3 class="card-title">5 · Ficha para el sitio</h3>
+        <label>Nombre
+          <input type="text" id="f-nombre" placeholder="Ej: Dragón articulado">
+        </label>
+        <label>Descripción
+          <textarea id="f-desc" rows="3" placeholder="Se genera sola si la dejas vacía"></textarea>
+        </label>
+        <button class="btn btn-ghost btn-block" id="btn-desc">✍️ Generar descripción</button>
+        <label>Etiqueta naranja (opcional)
+          <input type="text" id="f-badge" placeholder="Ej: ¡Nuevo!">
+        </label>
+        <label>Etiquetas <span class="muted small">(separadas por coma)</span>
+          <input type="text" id="f-tags" placeholder="Articulado, Colores personalizables">
+        </label>
+        <label>Colores disponibles</label>
+        <div class="swatches" id="f-colores"></div>
+      </div>
+
+      <div class="card">
+        <h3 class="card-title">6 · Guardar</h3>
+        <div class="row">
+          <button class="btn btn-ghost grow" id="btn-guardar">💾 Guardar borrador</button>
+          <button class="btn btn-primary grow" id="btn-publicar">🚀 Publicar</button>
+        </div>
+        <p class="hint">“Publicar” sube la foto y la ficha a milos3d.com. Tarda ~1 minuto en verse.</p>
+        <button class="btn btn-link" id="btn-limpiar">Limpiar formulario</button>
+      </div>
+    </section>
+
+    <!-- ---------- CATÁLOGO ---------- -->
+    <section class="view" id="view-catalogo" hidden>
+      <h2 class="view-title">Catálogo</h2>
+      <div class="seg" id="cat-filtro">
+        <button class="seg-btn active" data-f="todos">Todos</button>
+        <button class="seg-btn" data-f="borrador">Borradores</button>
+        <button class="seg-btn" data-f="publicado">Publicados</button>
+      </div>
+      <div id="cat-list" class="list"></div>
+    </section>
+
+    <!-- ---------- COTIZACIONES ---------- -->
+    <section class="view" id="view-cotiza" hidden>
+      <h2 class="view-title">Cotizaciones</h2>
+      <button class="btn btn-primary btn-block" id="btn-nueva-cot">+ Nueva cotización</button>
+      <div class="seg" id="cot-filtro">
+        <button class="seg-btn active" data-f="todas">Todas</button>
+        <button class="seg-btn" data-f="borrador">Borrador</button>
+        <button class="seg-btn" data-f="enviada">Enviadas</button>
+        <button class="seg-btn" data-f="aprobada">Aprobadas</button>
+        <button class="seg-btn" data-f="pagada">Pagadas</button>
+      </div>
+      <div class="totals" id="cot-totales"></div>
+      <div id="cot-list" class="list"></div>
+    </section>
+
+    <!-- ---------- AJUSTES ---------- -->
+    <section class="view" id="view-ajustes" hidden>
+      <h2 class="view-title">Ajustes</h2>
+
+      <div class="card">
+        <h3 class="card-title">Costos</h3>
+        <div class="grid2">
+          <label>Filamento $/kg
+            <input type="number" id="s-precioKg" inputmode="decimal" min="0">
+          </label>
+          <label>Impresora $/hora
+            <input type="number" id="s-tarifaHora" inputmode="decimal" min="0">
+          </label>
+          <label>Mano de obra $/hora
+            <input type="number" id="s-tarifaMano" inputmode="decimal" min="0">
+          </label>
+          <label>Merma / fallos %
+            <input type="number" id="s-merma" inputmode="numeric" min="0">
+          </label>
+          <label>Margen de ganancia %
+            <input type="number" id="s-margen" inputmode="numeric" min="0">
+          </label>
+          <label>Redondear a múltiplo de
+            <input type="number" id="s-redondeo" inputmode="numeric" min="1">
+          </label>
+        </div>
+        <p class="hint">La impresora $/hora cubre luz, boquilla y desgaste. Un valor típico casero es $15–30 MXN/h.</p>
+      </div>
+
+      <div class="card">
+        <h3 class="card-title">Materiales</h3>
+        <div id="s-materiales" class="list-mini"></div>
+        <div class="row">
+          <input type="text" id="s-mat-nombre" placeholder="Nombre (PLA Seda)">
+          <input type="number" id="s-mat-precio" placeholder="$/kg" inputmode="decimal">
+          <button class="btn btn-ghost" id="s-mat-add">+</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3 class="card-title">Cobros</h3>
+        <label>Link de pago por defecto <span class="muted small">(Mercado Pago, PayPal.me, Stripe…)</span>
+          <input type="url" id="s-linkPago" placeholder="https://mpago.la/...">
+        </label>
+        <label>Datos para transferencia
+          <textarea id="s-datosPago" rows="3" placeholder="Banco, CLABE, titular…"></textarea>
+        </label>
+        <label>Anticipo sugerido %
+          <input type="number" id="s-anticipo" inputmode="numeric" min="0" max="100">
+        </label>
+      </div>
+
+      <div class="card">
+        <h3 class="card-title">Publicación en el sitio</h3>
+        <div class="grid2">
+          <label>Usuario de GitHub
+            <input type="text" id="s-owner" autocapitalize="off" autocorrect="off">
+          </label>
+          <label>Repositorio
+            <input type="text" id="s-repo" autocapitalize="off" autocorrect="off">
+          </label>
+          <label>Rama
+            <input type="text" id="s-branch" autocapitalize="off" autocorrect="off">
+          </label>
+        </div>
+        <label>Token de acceso
+          <input type="password" id="s-token" autocomplete="off" autocapitalize="off" placeholder="github_pat_...">
+        </label>
+        <button class="btn btn-ghost btn-block" id="s-test">🔌 Probar conexión</button>
+        <p class="hint" id="s-test-msg"></p>
+        <details class="det">
+          <summary>¿Cómo saco el token?</summary>
+          <ol class="hint">
+            <li>Entra a github.com → foto de perfil → <b>Settings</b>.</li>
+            <li>Hasta abajo: <b>Developer settings</b> → <b>Personal access tokens</b> → <b>Fine-grained tokens</b>.</li>
+            <li><b>Generate new token</b>. Nombre: “Milos 3D panel”. Expiración: 1 año.</li>
+            <li>Repository access → <b>Only select repositories</b> → elige <b>milos3d</b>.</li>
+            <li>Permissions → Repository permissions → <b>Contents: Read and write</b>.</li>
+            <li>Genera y copia el token aquí. Se guarda solo en este celular.</li>
+          </ol>
+        </details>
+      </div>
+
+      <div class="card">
+        <h3 class="card-title">Lectura de ligas</h3>
+        <label>Proxy para leer MakerWorld
+          <input type="url" id="s-proxy" placeholder="https://r.jina.ai/">
+        </label>
+        <p class="hint">Las páginas de MakerWorld no se dejan leer directo desde el navegador. Este puente lo permite. Si falla, siempre puedes pegar los datos a mano.</p>
+      </div>
+
+      <div class="card">
+        <h3 class="card-title">Seguridad y respaldo</h3>
+        <button class="btn btn-ghost btn-block" id="s-pin">Cambiar PIN</button>
+        <button class="btn btn-ghost btn-block" id="s-export">⬇️ Descargar respaldo</button>
+        <label class="btn btn-ghost btn-block">⬆️ Restaurar respaldo
+          <input type="file" accept="application/json" id="s-import" hidden>
+        </label>
+      </div>
+    </section>
+  </main>
+
+  <nav class="tabbar">
+    <button class="tab active" data-view="nuevo"><span>➕</span>Nuevo</button>
+    <button class="tab" data-view="catalogo"><span>📦</span>Catálogo</button>
+    <button class="tab" data-view="cotiza"><span>🧾</span>Cotizar</button>
+    <button class="tab" data-view="ajustes"><span>⚙️</span>Ajustes</button>
+  </nav>
+</div>
+
+<!-- ===== Hoja modal genérica ===== -->
+<div class="sheet-overlay" id="sheet-overlay" hidden></div>
+<div class="sheet" id="sheet" hidden>
+  <div class="sheet-head">
+    <h3 id="sheet-title"></h3>
+    <button class="icon-btn" id="sheet-close">✕</button>
+  </div>
+  <div class="sheet-body" id="sheet-body"></div>
+  <div class="sheet-foot" id="sheet-foot"></div>
+</div>
+
+<div class="toast" id="toast"></div>
+<div class="busy" id="busy" hidden><div class="spinner"></div><span id="busy-msg"></span></div>
+
+<script src="admin.js"></script>
+</body>
+</html>

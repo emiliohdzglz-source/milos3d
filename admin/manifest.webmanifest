@@ -1,0 +1,14 @@
+{
+  "name": "MILO'S 3D — Panel",
+  "short_name": "MILO'S 3D",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#04060e",
+  "theme_color": "#04060e",
+  "icons": [
+    { "src": "../assets/logo.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "../assets/logo.webp", "sizes": "512x512", "type": "image/webp", "purpose": "any" }
+  ]
+}

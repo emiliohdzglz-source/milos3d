@@ -1,0 +1,5 @@
+User-agent: *
+Disallow: /admin/
+Disallow: /cotizacion.html
+
+Sitemap: https://www.milos3d.com/
