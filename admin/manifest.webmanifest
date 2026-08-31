@@ -8,7 +8,6 @@
   "background_color": "#04060e",
   "theme_color": "#04060e",
   "icons": [
-    { "src": "../assets/logo.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
-    { "src": "../assets/logo.webp", "sizes": "512x512", "type": "image/webp", "purpose": "any" }
+    { "src": "../assets/logo.webp", "sizes": "any", "type": "image/webp", "purpose": "any" }
   ]
 }
