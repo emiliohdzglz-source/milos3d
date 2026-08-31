@@ -21,11 +21,44 @@
   <div class="lock-box">
     <img src="../assets/logo.webp" alt="" class="lock-logo" onerror="this.style.display='none'">
     <h1>MILO'S <em>3D</em></h1>
-    <p class="muted">Panel de la familia</p>
-    <input type="text" id="lock-nombre" placeholder="¿Cómo te llamas?" autocomplete="off" hidden>
-    <input type="password" id="lock-pin" inputmode="numeric" placeholder="PIN" autocomplete="off">
-    <button class="btn btn-primary btn-block" id="lock-go">Entrar</button>
-    <p class="lock-hint muted" id="lock-hint">Primera vez: escribe el PIN que quieras y quedará guardado en este celular.</p>
+
+    <!-- Primer ingreso en este celular -->
+    <div class="lock-paso" id="paso-registro" hidden>
+      <p class="muted">Primera vez en este celular</p>
+      <input type="text" id="reg-nombre" placeholder="¿Cómo te llamas?" autocomplete="off">
+      <input type="password" id="reg-clave" placeholder="Crea tu contraseña" autocomplete="new-password">
+      <div class="barra-fuerza"><i id="fuerza-barra"></i></div>
+      <p class="fuerza-txt muted" id="fuerza-txt">Mínimo 8 caracteres.</p>
+      <input type="password" id="reg-clave2" placeholder="Repite la contraseña" autocomplete="new-password">
+      <button class="btn btn-primary btn-block" id="reg-go">Crear mi acceso</button>
+      <p class="lock-hint muted">Tu contraseña <b>cifra el token</b> que publica en el sitio.
+        No se guarda en ningún lado, ni yo la puedo ver — si se te olvida hay que empezar de nuevo
+        en este celular (tus productos publicados no se pierden).</p>
+    </div>
+
+    <!-- Ingresos siguientes -->
+    <div class="lock-paso" id="paso-entrar" hidden>
+      <p class="muted" id="entrar-saludo">Bienvenido</p>
+      <button class="btn btn-primary btn-block btn-bio" id="btn-bio" hidden>
+        <span id="bio-ico">👤</span> <span id="bio-txt">Entrar con Face ID</span>
+      </button>
+      <p class="o-bien muted" id="o-bien" hidden>o con tu contraseña</p>
+      <input type="password" id="ent-clave" placeholder="Contraseña" autocomplete="current-password">
+      <button class="btn btn-ghost btn-block" id="ent-go">Entrar</button>
+      <p class="lock-hint muted" id="ent-error"></p>
+      <button class="btn btn-link" id="btn-olvide">Olvidé mi contraseña</button>
+    </div>
+
+    <!-- Segundo factor -->
+    <div class="lock-paso" id="paso-codigo" hidden>
+      <p class="muted">Verificación de 2 pasos</p>
+      <p class="lock-hint muted" style="margin-top:0">Abre tu app autenticadora y escribe el código de 6 dígitos.</p>
+      <input type="text" id="cod-2fa" inputmode="numeric" autocomplete="one-time-code"
+             maxlength="6" placeholder="000000" class="codigo">
+      <button class="btn btn-primary btn-block" id="cod-go">Verificar</button>
+      <p class="lock-hint muted" id="cod-error"></p>
+      <button class="btn btn-link" id="cod-cancelar">Cancelar</button>
+    </div>
   </div>
 </div>
 
@@ -294,16 +327,57 @@
       </div>
 
       <div class="card">
-        <h3 class="card-title">Seguridad y respaldo</h3>
+        <h3 class="card-title">Seguridad</h3>
         <label>Mi nombre en este celular
           <input type="text" id="s-usuario" placeholder="Tu nombre">
         </label>
         <p class="hint">Se guarda quién dio de alta cada producto, quién llenó los costos y quién lo publicó.</p>
-        <button class="btn btn-ghost btn-block" id="s-pin">Cambiar PIN</button>
+
+        <div class="estado-seg" id="s-estado-seg"></div>
+
+        <button class="btn btn-ghost btn-block" id="s-bio">👤 Activar Face ID / huella</button>
+        <button class="btn btn-ghost btn-block" id="s-clave">🔑 Cambiar contraseña</button>
+        <label>Bloquear solo después de
+          <select id="s-autolock">
+            <option value="2">2 minutos</option>
+            <option value="5">5 minutos</option>
+            <option value="10">10 minutos</option>
+            <option value="30">30 minutos</option>
+            <option value="0">Nunca</option>
+          </select>
+        </label>
+        <button class="btn btn-ghost btn-block" id="s-bloquear">🔒 Bloquear ahora</button>
+      </div>
+
+      <div class="card">
+        <h3 class="card-title">Verificación de 2 pasos</h3>
+        <div class="estado-seg" id="s-estado-2fa"></div>
+        <p class="hint">Un código de 6 dígitos de tu app autenticadora (Google Authenticator, 1Password,
+          el llavero de iPhone…) además de la contraseña. <b>Lo valida el servicio de pagos, no el navegador</b> —
+          por eso sí es un segundo factor de verdad, y por eso necesita que el servicio esté publicado.</p>
+        <button class="btn btn-ghost btn-block" id="s-2fa-probar">🔌 Revisar si está activo</button>
+        <details class="det">
+          <summary>¿Cómo lo activo?</summary>
+          <ol class="hint">
+            <li>Publica primero el servicio de pagos (carpeta <b>pagos/</b>).</li>
+            <li>Ahí mismo, guarda el token de GitHub como secreto del servicio:
+              <code>npx wrangler secret put GH_TOKEN</code></li>
+            <li>Genera un código para cada quien y guárdalo:
+              <code>npx wrangler secret put TOTP_EMILIO</code> (y KARLA, y el de tu hijo).</li>
+            <li>Cada quien escanea su código en la app autenticadora.</li>
+            <li>Vuelve aquí y toca <b>Revisar si está activo</b>.</li>
+          </ol>
+          <p class="hint">Los pasos completos están en <b>pagos/README.md</b>.</p>
+        </details>
+      </div>
+
+      <div class="card">
+        <h3 class="card-title">Respaldo</h3>
         <button class="btn btn-ghost btn-block" id="s-export">⬇️ Descargar respaldo</button>
         <label class="btn btn-ghost btn-block">⬆️ Restaurar respaldo
           <input type="file" accept="application/json" id="s-import" hidden>
         </label>
+        <p class="hint">El respaldo lleva la bóveda cifrada: para abrirla en otro celular hace falta tu contraseña.</p>
       </div>
     </section>
   </main>
@@ -330,6 +404,7 @@
 <div class="toast" id="toast"></div>
 <div class="busy" id="busy" hidden><div class="spinner"></div><span id="busy-msg"></span></div>
 
+<script src="seguridad.js"></script>
 <script src="admin.js"></script>
 </body>
 </html>

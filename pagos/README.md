@@ -15,6 +15,7 @@ sobra con muchísimo.
 | `POST /preferencia` | Crea el cobro y devuelve la liga de Mercado Pago |
 | `GET /estado?folio=1001` | Responde si esa cotización ya se pagó |
 | `POST /webhook` | Mercado Pago avisa aquí cuando alguien paga |
+| `POST /panel/token` | Entrega el token de GitHub, sólo con un código válido de 2 pasos |
 
 ## Instalarlo (una sola vez, ~10 minutos)
 
@@ -76,6 +77,49 @@ Si crees que el token se filtró: entra a Mercado Pago → *Tus integraciones* �
 tu aplicación → **Credenciales de producción** → genera unas nuevas.
 Las viejas dejan de servir en el momento.
 
+## Verificación de 2 pasos del panel (opcional)
+
+Sin esto, el token de GitHub vive cifrado con la contraseña en cada celular.
+Con esto, **el token no está en ningún celular**: lo guarda este servicio y sólo
+lo entrega cuando alguien escribe el código de 6 dígitos de su app autenticadora.
+
+Es un segundo factor de verdad porque **lo valida el servidor**. Una página
+estática no puede hacer esto: cualquier código que revise el navegador se brinca
+editando el JavaScript.
+
+```bash
+# 1. El token de GitHub pasa a vivir aquí
+npx wrangler secret put GH_TOKEN
+
+# 2. Una semilla distinta para cada quien.
+#    Genera cada una con este comando y guarda el resultado:
+node -e "const b='ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';console.log([...crypto.getRandomValues(new Uint8Array(20))].map(x=>b[x%32]).join(''))"
+
+npx wrangler secret put TOTP_EMILIO     # pega la semilla de Emilio
+npx wrangler secret put TOTP_KARLA      # otra distinta
+npx wrangler secret put TOTP_MILO       # otra distinta
+
+# 3. Republicar
+npx wrangler deploy
+```
+
+Cada quien abre su app autenticadora (Google Authenticator, 1Password, o el
+llavero del iPhone) → **Agregar cuenta** → **Escribir clave manualmente**:
+
+- Cuenta: `Milo's 3D (tu nombre)`
+- Clave: la semilla que le tocó
+- Tipo: **Basada en tiempo**
+
+> El nombre del secreto tiene que coincidir con el nombre que cada quien puso en
+> el panel: si en el panel dice "Karla", el secreto es `TOTP_KARLA`. Sin acentos
+> y sin espacios.
+
+Después, en el panel → **Ajustes → Verificación de 2 pasos → Revisar si está
+activo**. A partir de ahí, entrar pide contraseña **y** código.
+
+Hay freno de fuerza bruta: 8 intentos fallidos por persona y se bloquea 15
+minutos (necesita el KV del paso 5 de arriba).
+
 ## Seguridad
 
 - El token vive como *secret* de Cloudflare: no está en este repositorio,
@@ -84,6 +128,8 @@ Las viejas dejan de servir en el momento.
 - Los avisos de pago se validan con la firma HMAC de Mercado Pago.
 - Hay un tope de $200,000 por cobro como red de seguridad.
 - Los montos que manda el navegador se recalculan aquí antes de cobrar.
+- Los códigos de 2 pasos se comparan en tiempo constante y se acepta una
+  ventana de ±30 segundos por si el reloj del celular va desfasado.
 
 ## Probar sin cobrar de verdad
 

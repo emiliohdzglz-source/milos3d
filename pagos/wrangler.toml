@@ -1,5 +1,7 @@
 # MILO'S 3D — servicio de pagos
-# Los secretos NO van aquí. Se ponen con `wrangler secret put` (ver README.md).
+# Los secretos NO van aquí. Se ponen con `wrangler secret put` (ver README.md):
+#   MP_ACCESS_TOKEN, MP_WEBHOOK_SECRET   — cobros con Mercado Pago
+#   GH_TOKEN, TOTP_<NOMBRE>              — verificación de 2 pasos del panel
 
 name = "milos3d-pagos"
 main = "worker.js"

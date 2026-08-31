@@ -10,8 +10,54 @@ Funciona desde el celular y **no necesita computadora**.
 1. Abre **milos3d.com/admin/** en Safari (iPhone) o Chrome (Android).
 2. Toca **Compartir** → **Agregar a pantalla de inicio**.
 3. Queda como una app con el logo de Milo's.
-4. La primera vez que entras, pon **tu nombre** y el **PIN** que quieras.
-   Los dos quedan guardados en ese celular.
+4. La primera vez que entras, pon **tu nombre** y **crea tu contraseña**.
+
+## 🔐 Cómo se entra al panel
+
+### Tu contraseña (obligatoria)
+
+La primera vez, cada quien crea su contraseña en su celular. **No es una pantalla
+de adorno:** con esa contraseña se cifra el token de GitHub, que es lo único que
+puede publicar en el sitio. Si alguien agarra el celular y no la sabe, el token
+es un montón de letras ilegibles — no hay forma de brincarla editando la página.
+
+> La contraseña **no se guarda en ningún lado**. Ni en el celular, ni en el sitio,
+> ni yo la puedo ver. Si se te olvida, no se recupera: hay que empezar de nuevo en
+> ese celular. Tus productos y el sitio no se pierden, viven en milos3d.com.
+
+Pide mínimo 8 caracteres y te muestra qué tan fuerte va. Rechaza las obvias
+(*milos*, *123456*, *password*).
+
+### Face ID o huella (recomendado)
+
+Después de crear tu contraseña te pregunta si quieres entrar con Face ID o huella.
+También lo prendes en **Ajustes → Seguridad**.
+
+**Sólo se activa si tu navegador lo permite de verdad** — o sea, si puede sacar
+una llave del propio sensor. Safari en iPhone (iOS 18 o más nuevo) y Chrome
+actualizado en Android sí pueden. Si el tuyo no puede, el panel te lo dice y **no**
+lo activa: una huella que no protege nada es peor que no tenerla, porque te hace
+sentir seguro sin serlo.
+
+Tu contraseña siempre sigue funcionando como respaldo.
+
+### Verificación de 2 pasos (opcional, la más fuerte)
+
+Un código de 6 dígitos de tu app autenticadora, además de la contraseña.
+
+**Esto necesita el servicio de pagos publicado**, y no es un capricho: un código
+que revise el propio navegador se brinca en dos minutos editando la página. Para
+que sea un segundo factor de verdad tiene que validarlo un servidor. Con esto
+prendido, **el token ni siquiera vive en los celulares**: lo guarda el servicio y
+sólo lo suelta cuando escribes el código correcto.
+
+Los pasos están en **pagos/README.md**. Después, en el panel:
+**Ajustes → Verificación de 2 pasos → Revisar si está activo**.
+
+### Bloqueo automático
+
+El panel se bloquea solo a los 5 minutos sin usarlo (ajustable en Ajustes, o
+**🔒 Bloquear ahora** cuando le prestas el celular a alguien).
 
 ### Son tres: Emilio, su esposa y su hijo
 
@@ -22,7 +68,11 @@ y lo muestra en el catálogo:
 
 Así siempre se sabe quién dio de alta el producto, quién llenó los datos de
 impresión y quién lo subió al sitio. Para cambiar tu nombre:
-**Ajustes → Mi nombre en este celular**.
+**Ajustes → Seguridad → Mi nombre en este celular**.
+
+> Cada quien tiene **su propia contraseña en su propio celular**. No hay una
+> cuenta compartida: si le cambias la contraseña a tu celular, el de Karla sigue
+> igual.
 
 ### Conectar el panel con el sitio (una sola vez)
 
@@ -178,6 +228,23 @@ el servicio: lo generas desde la app de Mercado Pago para ese monto) y los
 También ahí van los **materiales**, cada uno con su precio por kilo.
 
 ---
+
+## 🧯 Qué protege esto y qué no
+
+Para que no te sorprenda nada:
+
+| Situación | ¿Estás protegido? |
+|---|---|
+| Alguien agarra el celular desbloqueado | Sí, si ya se bloqueó solo (5 min) |
+| Alguien roba el celular y sabe la contraseña | No. Cambia el token en GitHub |
+| Alguien roba el celular y **no** sabe la contraseña | Sí. El token es ilegible |
+| Alguien entra a milos3d.com/admin/ desde su compu | Sí. No tiene tu bóveda: vería un panel vacío y no puede publicar |
+| Alguien te adivina la contraseña a fuerza bruta | Muy difícil: cada intento tarda ~0.1 s por diseño |
+| Alguien te saca la contraseña por engaño | Sólo con verificación de 2 pasos prendida |
+
+**Si pierdes un celular:** entra a github.com → Settings → Developer settings →
+Personal access tokens → **borra el token**. En ese instante ese celular deja de
+poder publicar, aunque alguien adivine la contraseña. Luego generas uno nuevo.
 
 ## 🛒 El sitio público
 

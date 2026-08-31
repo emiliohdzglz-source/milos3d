@@ -7,6 +7,8 @@
  * Secretos (se ponen con `wrangler secret put`, nunca en este archivo):
  *   MP_ACCESS_TOKEN    — Access token de producción de Mercado Pago
  *   MP_WEBHOOK_SECRET  — Clave secreta del webhook (opcional pero recomendada)
+ *   GH_TOKEN           — Token de GitHub que publica en el sitio (2 pasos)
+ *   TOTP_<NOMBRE>      — Semilla base32 de cada persona (TOTP_EMILIO, TOTP_KARLA…)
  *
  * Variables (en wrangler.toml):
  *   ORIGENES           — dominios permitidos, separados por coma
@@ -20,6 +22,7 @@
  *   POST /preferencia           crea el cobro y devuelve la liga de pago
  *   GET  /estado?folio=1001     ¿ya pagó?
  *   POST /webhook               avisos de Mercado Pago
+ *   POST /panel/token           entrega el token de GitHub contra un código TOTP
  */
 
 const MP = "https://api.mercadopago.com";
@@ -249,6 +252,107 @@ async function webhook(request, env) {
   return new Response("ok", { status: 200 });
 }
 
+/* ==========================================================
+   VERIFICACIÓN DE 2 PASOS (TOTP)
+   Esto es un segundo factor de verdad porque lo valida el
+   servidor: el token de GitHub nunca sale de aquí sin un
+   código válido del autenticador. Un sitio estático no puede
+   hacer esto por su cuenta.
+   ========================================================== */
+const B32 = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
+
+function base32ADbytes(s) {
+  const limpio = String(s).toUpperCase().replace(/[^A-Z2-7]/g, "");
+  let bits = 0, valor = 0;
+  const out = [];
+  for (const c of limpio) {
+    const i = B32.indexOf(c);
+    if (i < 0) continue;
+    valor = (valor << 5) | i;
+    bits += 5;
+    if (bits >= 8) { out.push((valor >>> (bits - 8)) & 0xff); bits -= 8; }
+  }
+  return new Uint8Array(out);
+}
+
+async function codigoTotp(llave, contador) {
+  const buf = new ArrayBuffer(8);
+  const dv = new DataView(buf);
+  dv.setUint32(0, Math.floor(contador / 2 ** 32));
+  dv.setUint32(4, contador >>> 0);
+  const sig = new Uint8Array(await crypto.subtle.sign("HMAC", llave, buf));
+  const off = sig[sig.length - 1] & 0x0f;
+  const n = ((sig[off] & 0x7f) << 24) | (sig[off + 1] << 16) | (sig[off + 2] << 8) | sig[off + 3];
+  return String(n % 1000000).padStart(6, "0");
+}
+
+function igualesEnTiempoFijo(a, b) {
+  if (a.length !== b.length) return false;
+  let d = 0;
+  for (let i = 0; i < a.length; i++) d |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  return d === 0;
+}
+
+async function totpValido(semilla, codigo, ventana = 1) {
+  const bytes = base32ADbytes(semilla);
+  if (bytes.length < 10) return false;                 // semilla demasiado corta
+  const llave = await crypto.subtle.importKey(
+    "raw", bytes, { name: "HMAC", hash: "SHA-1" }, false, ["sign"]);
+  const paso = Math.floor(Date.now() / 30000);
+  for (let d = -ventana; d <= ventana; d++) {          // tolera relojes desfasados
+    if (igualesEnTiempoFijo(await codigoTotp(llave, paso + d), codigo)) return true;
+  }
+  return false;
+}
+
+const claveUsuario = (u) => "TOTP_" + String(u || "").toUpperCase()
+  .normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^A-Z0-9]/g, "");
+
+function usuariosCon2FA(env) {
+  return Object.keys(env).filter(k => /^TOTP_[A-Z0-9]+$/.test(k) && env[k])
+    .map(k => k.slice(5).charAt(0) + k.slice(6).toLowerCase());
+}
+
+/* ---------- Freno a los intentos por fuerza bruta ---------- */
+async function intentosOk(env, quien) {
+  if (!env.PAGOS) return true;                         // sin KV no hay contador
+  const k = `intentos:${quien}`;
+  const n = Number(await env.PAGOS.get(k)) || 0;
+  return n < 8;
+}
+async function sumarIntento(env, quien, exito) {
+  if (!env.PAGOS) return;
+  const k = `intentos:${quien}`;
+  if (exito) { await env.PAGOS.delete(k); return; }
+  const n = (Number(await env.PAGOS.get(k)) || 0) + 1;
+  await env.PAGOS.put(k, String(n), { expirationTtl: 900 });   // se olvida a los 15 min
+}
+
+async function tokenDelPanel(request, env) {
+  let body = {};
+  try { body = await request.json(); } catch { /* vacío */ }
+
+  const usuario = String(body.usuario || "").slice(0, 40);
+  const codigo = String(body.codigo || "").replace(/\D/g, "");
+  const quien = claveUsuario(usuario);
+
+  if (!env.GH_TOKEN) return json({ error: "El servicio todavía no tiene el token de GitHub." }, 503);
+  if (!usuario || codigo.length !== 6) return json({ error: "Faltan datos." }, 400);
+
+  const semilla = env[quien];
+  if (!semilla) return json({ error: "Este usuario no tiene verificación de 2 pasos configurada." }, 403);
+
+  if (!await intentosOk(env, quien)) {
+    return json({ error: "Demasiados intentos. Espera 15 minutos." }, 429);
+  }
+
+  const ok = await totpValido(semilla, codigo);
+  await sumarIntento(env, quien, ok);
+  if (!ok) return json({ error: "Código incorrecto o vencido." }, 401);
+
+  return json({ token: env.GH_TOKEN, expira: 0 });
+}
+
 /* ---------- Router ---------- */
 export default {
   async fetch(request, env) {
@@ -265,8 +369,15 @@ export default {
           ok: true, servicio: "MILO'S 3D pagos",
           mercadopago: !!env.MP_ACCESS_TOKEN,
           webhookFirmado: !!env.MP_WEBHOOK_SECRET,
-          historial: !!env.PAGOS
+          historial: !!env.PAGOS,
+          panel: !!env.GH_TOKEN,
+          usuarios2FA: usuariosCon2FA(env)
         }, 200, cabeceras);
+      }
+
+      if (url.pathname === "/panel/token" && request.method === "POST") {
+        const r = await tokenDelPanel(request, env);
+        return new Response(r.body, { status: r.status, headers: { ...Object.fromEntries(r.headers), ...cabeceras } });
       }
 
       if (url.pathname === "/preferencia" && request.method === "POST") {

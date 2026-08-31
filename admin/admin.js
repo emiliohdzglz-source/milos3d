@@ -12,8 +12,8 @@ const PALETA = [
 ];
 
 const DEFAULTS = {
-  pin: "",
   usuario: "",
+  autolock: 5,
   precioKg: 480,
   tarifaHora: 20,
   tarifaMano: 150,
@@ -42,6 +42,11 @@ let editandoId = null;
 let vistaActual = "nuevo";
 let filtroCat = "todos";
 let filtroCot = "todas";
+
+/* Sólo en memoria: se pierden al bloquear o cerrar. Nunca tocan el disco. */
+let LLAVE = null;        // llave que abre la bóveda
+let SECRETOS = {};       // { ghToken }
+let temporizadorLock = null;
 
 function nuevoForm() {
   return {
@@ -100,38 +105,198 @@ function cargar() {
 /* ==========================================================
    CANDADO
    ========================================================== */
+function paso(cual) {
+  ["registro", "entrar", "codigo"].forEach(x => $("#paso-" + x).hidden = x !== cual);
+}
+
 function initLock() {
-  const primera = !DB.ajustes.pin;
-  if (primera) {
-    $("#lock-nombre").hidden = false;
-    $("#lock-hint").textContent = "Primera vez en este celular: pon tu nombre y el PIN que quieras.";
-  } else {
-    $("#lock-hint").textContent = DB.ajustes.usuario
-      ? `Hola ${DB.ajustes.usuario}, escribe tu PIN.` : "Escribe tu PIN para entrar.";
-  }
-  const entrar = () => {
-    const pin = $("#lock-pin").value.trim();
-    if (primera) {
-      const nombre = $("#lock-nombre").value.trim();
-      if (!nombre) return toast("Escribe tu nombre");
-      if (pin.length < 4) return toast("El PIN necesita al menos 4 dígitos");
-      DB.ajustes.usuario = nombre.slice(0, 24);
-      DB.ajustes.pin = pin;
-      guardar();
-    } else if (pin !== DB.ajustes.pin) {
-      $("#lock-pin").value = "";
-      return toast("PIN incorrecto");
+  const registrado = !!DB.seguridad;
+  paso(registrado ? "entrar" : "registro");
+
+  if (registrado) {
+    $("#entrar-saludo").textContent = DB.ajustes.usuario ? `Hola, ${DB.ajustes.usuario}` : "Bienvenido";
+    if (DB.seguridad.porPasskey) {
+      $("#btn-bio").hidden = false;
+      $("#o-bien").hidden = false;
+      SEG.hayBiometrico().then(hay => {
+        $("#bio-txt").textContent = hay ? "Entrar con Face ID o huella" : "Entrar con mi passkey";
+      });
     }
-    $("#lock").style.display = "none";
-    $("#app").hidden = false;
-    arrancar();
+    setTimeout(() => $("#ent-clave").focus(), 300);
+  } else {
+    setTimeout(() => $("#reg-nombre").focus(), 300);
+  }
+
+  /* ---------- Registro ---------- */
+  $("#reg-clave").addEventListener("input", () => {
+    const f = SEG.fuerza($("#reg-clave").value);
+    const colores = ["var(--bad)", "var(--bad)", "var(--warn)", "var(--warn)", "var(--ok)", "var(--ok)"];
+    $("#fuerza-barra").style.width = (f.puntos / 5 * 100) + "%";
+    $("#fuerza-barra").style.background = colores[f.puntos];
+    $("#fuerza-txt").textContent = $("#reg-clave").value
+      ? `${f.etiqueta}${f.ok ? "" : " — usa al menos 8 caracteres y mezcla letras y números"}`
+      : "Mínimo 8 caracteres.";
+  });
+
+  $("#reg-go").addEventListener("click", async () => {
+    const nombre = $("#reg-nombre").value.trim();
+    const clave = $("#reg-clave").value;
+    const clave2 = $("#reg-clave2").value;
+    if (!nombre) return toast("Escribe tu nombre");
+    if (!SEG.fuerza(clave).ok) return toast("La contraseña está muy débil");
+    if (clave !== clave2) return toast("Las contraseñas no coinciden");
+
+    busy("Creando tu acceso…");
+    try {
+      const { seguridad, boveda } = await SEG.crear(clave, {});
+      DB.ajustes.usuario = nombre.slice(0, 24);
+      DB.seguridad = seguridad;
+      DB.boveda = boveda;
+      guardar();
+      LLAVE = await SEG.abrirConContrasena(seguridad, clave);
+      SECRETOS = {};
+      unbusy();
+      entrarAlPanel();
+      setTimeout(() => ofrecerBiometrico(clave), 700);
+    } catch (e) {
+      unbusy(); console.error(e); toast("No se pudo crear el acceso");
+    }
+  });
+
+  /* ---------- Entrar con contraseña ---------- */
+  const entrarConClave = async () => {
+    const clave = $("#ent-clave").value;
+    if (!clave) return;
+    busy("Abriendo…");
+    const llave = await SEG.abrirConContrasena(DB.seguridad, clave);
+    unbusy();
+    if (!llave) {
+      $("#ent-clave").value = "";
+      $("#ent-error").textContent = "Contraseña incorrecta.";
+      return;
+    }
+    $("#ent-error").textContent = "";
+    await abrirBoveda(llave);
   };
-  $("#lock-go").addEventListener("click", entrar);
-  [$("#lock-pin"), $("#lock-nombre")].forEach(el =>
-    el.addEventListener("keydown", e => { if (e.key === "Enter") entrar(); }));
+  $("#ent-go").addEventListener("click", entrarConClave);
+  $("#ent-clave").addEventListener("keydown", e => { if (e.key === "Enter") entrarConClave(); });
+
+  /* ---------- Entrar con Face ID / huella ---------- */
+  $("#btn-bio").addEventListener("click", async () => {
+    $("#ent-error").textContent = "";
+    try {
+      const llave = await SEG.abrirConPasskey(DB.seguridad);
+      if (!llave) { $("#ent-error").textContent = "No se reconoció. Usa tu contraseña."; return; }
+      await abrirBoveda(llave);
+    } catch (e) {
+      $("#ent-error").textContent = "No se pudo usar la huella. Usa tu contraseña.";
+    }
+  });
+
+  /* ---------- Segundo factor ---------- */
+  const verificar = async () => {
+    const codigo = $("#cod-2fa").value.replace(/\D/g, "");
+    if (codigo.length !== 6) return toast("Son 6 dígitos");
+    busy("Verificando…");
+    const r = await pedirTokenAlServicio(codigo);
+    unbusy();
+    if (!r.ok) { $("#cod-2fa").value = ""; $("#cod-error").textContent = r.error; return; }
+    SECRETOS.ghToken = r.token;
+    $("#cod-error").textContent = "";
+    entrarAlPanel();
+  };
+  $("#cod-go").addEventListener("click", verificar);
+  $("#cod-2fa").addEventListener("input", e => { if (e.target.value.replace(/\D/g, "").length === 6) verificar(); });
+  $("#cod-cancelar").addEventListener("click", () => { LLAVE = null; paso("entrar"); });
+
+  $("#btn-olvide").addEventListener("click", () => {
+    alert("La contraseña no se guarda en ningún lado, así que no se puede recuperar.\n\n" +
+      "Lo que puedes hacer: entrar desde el celular de alguien más de la familia, o empezar de nuevo " +
+      "en este celular desde Ajustes → Respaldo.\n\n" +
+      "Tus productos publicados y el sitio NO se pierden: viven en milos3d.com.");
+  });
+}
+
+/* ---------- Abrir la bóveda y decidir si falta el 2º paso ---------- */
+async function abrirBoveda(llave) {
+  LLAVE = llave;
+  SECRETOS = (await SEG.leerBoveda(llave, DB.boveda)) || {};
+  if (DB.ajustes.dosPasos && pagosBase()) {   // el token lo entrega el servicio, no el celular
+    paso("codigo");
+    setTimeout(() => $("#cod-2fa").focus(), 250);
+    return;
+  }
+  entrarAlPanel();
+}
+
+function entrarAlPanel() {
+  $("#lock").style.display = "none";
+  $("#app").hidden = false;
+  reiniciarAutolock();
+  if (!window.__arrancado) { window.__arrancado = true; arrancar(); }
+  else { pintarForm(); renderCatalogo(); }
 }
 
 function yo() { return DB.ajustes.usuario || "alguien"; }
+
+/* ---------- Guardar un secreto en la bóveda ---------- */
+async function guardarSecretos() {
+  if (!LLAVE) return;
+  DB.boveda = await SEG.escribirBoveda(LLAVE, SECRETOS);
+  guardar();
+}
+
+/* ---------- Bloqueo automático ---------- */
+function bloquear() {
+  LLAVE = null; SECRETOS = {};
+  clearTimeout(temporizadorLock);
+  location.reload();
+}
+
+function reiniciarAutolock() {
+  clearTimeout(temporizadorLock);
+  const min = Number(DB.ajustes.autolock);
+  if (!min) return;
+  temporizadorLock = setTimeout(bloquear, min * 60000);
+}
+
+["click", "keydown", "touchstart", "scroll"].forEach(ev =>
+  addEventListener(ev, () => { if (LLAVE) reiniciarAutolock(); }, { passive: true }));
+
+document.addEventListener("visibilitychange", () => {
+  if (document.hidden && LLAVE && Number(DB.ajustes.autolock)) reiniciarAutolock();
+});
+
+/* ---------- Ofrecer Face ID justo después de registrarse ---------- */
+async function ofrecerBiometrico(clave) {
+  if (!(await SEG.hayBiometrico())) return;
+  if (!confirm("¿Quieres entrar con Face ID o tu huella la próxima vez?\n\nTu contraseña seguirá funcionando como respaldo.")) return;
+  await activarBiometrico(clave);
+}
+
+async function activarBiometrico(clave) {
+  const c = clave || prompt("Confirma tu contraseña para activar la huella:");
+  if (!c) return;
+  const dek = await SEG.bytesDeDek(DB.seguridad, c);
+  if (!dek) return toast("Contraseña incorrecta");
+  try {
+    busy("Registrando tu huella…");
+    DB.seguridad.porPasskey = await SEG.registrarPasskey(DB.ajustes.usuario || "Milo's 3D", dek);
+    guardar(); unbusy();
+    toast("Listo: ya puedes entrar con Face ID 👤");
+    pintarEstadoSeguridad();
+  } catch (e) {
+    unbusy();
+    if (String(e.message).includes("PRF_NO_SOPORTADO")) {
+      alert("Este navegador reconoce tu huella, pero no permite derivar una llave de ella " +
+        "(le falta la extensión PRF).\n\nNo voy a activarla: sería una pantalla bonita que no protege nada. " +
+        "Tu contraseña sí cifra el token de verdad.\n\nPrueba con Safari en iPhone (iOS 18 o más nuevo) " +
+        "o Chrome actualizado en Android.");
+    } else {
+      toast("No se pudo registrar la huella");
+    }
+  }
+}
 
 /* ==========================================================
    NAVEGACIÓN
@@ -499,8 +664,26 @@ function editarProducto(id) {
 /* ==========================================================
    GITHUB
    ========================================================== */
-function gh() { return DB.ajustes.gh; }
+function gh() { return { ...DB.ajustes.gh, token: SECRETOS.ghToken || "" }; }
 function ghOk() { const g = gh(); return !!(g.owner && g.repo && g.token); }
+
+/* ---------- Pedirle el token al servicio, con el código de 2 pasos ---------- */
+async function pedirTokenAlServicio(codigo) {
+  const base = pagosBase();
+  if (!base) return { ok: false, error: "Falta la dirección del servicio." };
+  try {
+    const r = await fetch(base + "/panel/token", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ usuario: DB.ajustes.usuario, codigo })
+    });
+    const d = await r.json().catch(() => ({}));
+    if (!r.ok || !d.token) return { ok: false, error: d.error || "Código incorrecto." };
+    return { ok: true, token: d.token };
+  } catch (e) {
+    return { ok: false, error: "No se pudo contactar al servicio." };
+  }
+}
 
 async function ghFetch(path, opts = {}) {
   const g = gh();
@@ -1245,9 +1428,63 @@ function pintarAjustes() {
   $("#s-owner").value = gh().owner || "";
   $("#s-repo").value = gh().repo || "";
   $("#s-branch").value = gh().branch || "main";
-  $("#s-token").value = gh().token || "";
+  $("#s-token").value = SECRETOS.ghToken || "";
   $("#s-usuario").value = DB.ajustes.usuario || "";
+  $("#s-autolock").value = String(DB.ajustes.autolock ?? 5);
   pintarMaterialesAjustes();
+  pintarEstadoSeguridad();
+}
+
+function pintarEstadoSeguridad() {
+  const bio = !!DB.seguridad?.porPasskey;
+  const dos = !!(DB.ajustes.dosPasos && pagosBase());
+  const tok = !!SECRETOS.ghToken;
+
+  const fila = (on, titulo, nota) =>
+    `<div class="fila"><span class="m ${on ? "on" : "off"}">${on ? "✓" : "○"}</span>
+       <span class="${on ? "" : "off"}">${titulo}<small>${nota}</small></span></div>`;
+
+  const e = $("#s-estado-seg");
+  if (e) e.innerHTML =
+    fila(true, "Contraseña", "Cifra el token que publica en el sitio. Sin ella, es ilegible.") +
+    fila(bio, bio ? "Face ID / huella activo" : "Face ID / huella apagado",
+      bio ? "La llave sale del sensor de este celular."
+          : "Sólo se activa si tu navegador lo permite de verdad.") +
+    fila(tok, tok ? "Token guardado y cifrado" : "Falta el token de GitHub",
+      tok ? "Vive en la bóveda de este celular." : "Sin él no se puede publicar.");
+
+  const d = $("#s-estado-2fa");
+  if (d) d.innerHTML = dos
+    ? fila(true, "Verificación de 2 pasos activa", "El token lo entrega el servicio sólo con tu código.")
+    : fila(false, "Verificación de 2 pasos apagada",
+        pagosBase() ? "El servicio está conectado pero aún no tiene los códigos."
+                    : "Necesita el servicio de pagos publicado.");
+}
+
+async function revisar2FA() {
+  const base = pagosBase();
+  const d = $("#s-estado-2fa");
+  if (!base) { toast("Publica primero el servicio de pagos"); return; }
+  busy("Revisando…");
+  try {
+    const r = await fetch(base + "/salud");
+    const j = await r.json();
+    unbusy();
+    DB.ajustes.dosPasos = !!(j.panel && j.usuarios2FA?.length);
+    guardar();
+    pintarEstadoSeguridad();
+    if (!j.panel) {
+      d.innerHTML = `<div class="fila"><span class="m off">○</span><span>El servicio no tiene el token de GitHub.<small>Falta <code>npx wrangler secret put GH_TOKEN</code></small></span></div>`;
+    } else if (!j.usuarios2FA?.length) {
+      d.innerHTML = `<div class="fila"><span class="m off">○</span><span>Falta el código de cada quien.<small>Falta <code>npx wrangler secret put TOTP_TUNOMBRE</code></small></span></div>`;
+    } else {
+      const mio = j.usuarios2FA.some(u => u.toLowerCase() === String(DB.ajustes.usuario).toLowerCase());
+      d.innerHTML = `<div class="fila"><span class="m on">✓</span><span>Activo para: ${j.usuarios2FA.map(esc).join(", ")}.<small>${mio ? "Tú incluido: la próxima vez te va a pedir el código." : `Falta el tuyo (${esc(DB.ajustes.usuario)}).`}</small></span></div>`;
+    }
+  } catch (e) {
+    unbusy();
+    d.innerHTML = `<div class="fila"><span class="m off">○</span><span>El servicio no respondió.<small>Revisa la dirección en Cobros con tarjeta.</small></span></div>`;
+  }
 }
 
 function pintarMaterialesAjustes() {
@@ -1270,23 +1507,30 @@ function leerAjustes() {
   });
   DB.ajustes.gh = {
     owner: $("#s-owner").value.trim(), repo: $("#s-repo").value.trim(),
-    branch: $("#s-branch").value.trim() || "main", token: $("#s-token").value.trim()
+    branch: $("#s-branch").value.trim() || "main"
   };
+  const tok = $("#s-token").value.trim();
+  if (tok && tok !== SECRETOS.ghToken) {
+    SECRETOS.ghToken = tok;
+    guardarSecretos();          // se guarda CIFRADO con tu contraseña
+  }
+  DB.ajustes.autolock = Number($("#s-autolock").value);
   guardar();
+  reiniciarAutolock();
   recalcular();
 }
 
 function exportarRespaldo() {
   const copia = JSON.parse(JSON.stringify(DB));
-  delete copia.ajustes.token;
-  if (copia.ajustes.gh) copia.ajustes.gh.token = "";
+  if (copia.ajustes.gh) delete copia.ajustes.gh.token;
+  if (copia.seguridad) copia.seguridad.porPasskey = null;   // la huella es de este celular
   const blob = new Blob([JSON.stringify(copia, null, 2)], { type: "application/json" });
   const a = document.createElement("a");
   a.href = URL.createObjectURL(blob);
   a.download = `milos3d-respaldo-${new Date().toISOString().slice(0, 10)}.json`;
   a.click();
   setTimeout(() => URL.revokeObjectURL(a.href), 2000);
-  toast("Respaldo descargado (sin el token)");
+  toast("Respaldo descargado (el token va cifrado)");
 }
 
 async function importarRespaldo(file) {
@@ -1294,11 +1538,13 @@ async function importarRespaldo(file) {
   if (!confirm("Esto reemplaza los productos y cotizaciones de este celular. ¿Continuar?")) return;
   try {
     const d = JSON.parse(await file.text());
-    const token = gh().token;
+    if (d.seguridad && d.boveda && !confirm("Ese respaldo trae su propia bóveda. Vas a entrar con la contraseña de ese otro celular. ¿Seguir?")) return;
     DB = { ...DB, ...d };
     DB.ajustes = { ...DEFAULTS, ...(d.ajustes || {}) };
-    DB.ajustes.gh = { ...DEFAULTS.gh, ...(d.ajustes?.gh || {}), token };
-    guardar(); pintarAjustes(); toast("Respaldo restaurado");
+    DB.ajustes.gh = { ...DEFAULTS.gh, ...(d.ajustes?.gh || {}) };
+    guardar();
+    toast("Respaldo restaurado — vuelve a entrar");
+    setTimeout(() => location.reload(), 1200);
   } catch (e) { alert("El archivo no se pudo leer."); }
 }
 
@@ -1379,9 +1625,22 @@ function arrancar() {
   });
   $("#s-test").addEventListener("click", async () => { leerAjustes(); await probarConexion(); });
   $("#s-pagos-test").addEventListener("click", async () => { leerAjustes(); await probarPagos(); });
-  $("#s-pin").addEventListener("click", () => {
-    const p = prompt("Nuevo PIN (mínimo 4 dígitos):");
-    if (p && p.trim().length >= 4) { DB.ajustes.pin = p.trim(); guardar(); toast("PIN actualizado"); }
+  $("#s-bio").addEventListener("click", () => activarBiometrico());
+  $("#s-bloquear").addEventListener("click", bloquear);
+  $("#s-2fa-probar").addEventListener("click", revisar2FA);
+  $("#s-clave").addEventListener("click", async () => {
+    const actual = prompt("Tu contraseña de ahora:");
+    if (!actual) return;
+    const dek = await SEG.bytesDeDek(DB.seguridad, actual);
+    if (!dek) return toast("Contraseña incorrecta");
+    const nueva = prompt("Tu contraseña nueva (mínimo 8 caracteres):");
+    if (!nueva) return;
+    if (!SEG.fuerza(nueva).ok) return toast("Muy débil: usa 8+ caracteres con letras y números");
+    if (prompt("Repítela:") !== nueva) return toast("No coinciden");
+    busy("Cambiando…");
+    DB.seguridad = await SEG.cambiarContrasena(DB.seguridad, dek, nueva);
+    guardar(); unbusy();
+    toast("Contraseña cambiada 🔑");
   });
   $("#btn-sync").addEventListener("click", async () => {
     busy("Sincronizando con la familia…");
