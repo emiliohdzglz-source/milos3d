@@ -22,6 +22,7 @@ const DEFAULTS = {
   anticipo: 50,
   linkPago: "",
   datosPago: "",
+  pagosURL: "",
   proxy: "https://r.jina.ai/",
   materiales: [
     { nombre: "PLA", precioKg: 450 },
@@ -734,6 +735,7 @@ function menuCotizacion(id) {
     <button class="btn btn-ghost btn-block" onclick="cerrarHoja();copiarLink('${id}')">🔗 Copiar liga de la cotización</button>
     <button class="btn btn-ghost btn-block" onclick="cerrarHoja();cambiarEstado('${id}','aprobada')">✅ Marcar aprobada</button>
     <button class="btn btn-ghost btn-block" onclick="cerrarHoja();registrarPago('${id}')">💰 Registrar cobro</button>
+    ${DB.ajustes.pagosURL ? `<button class="btn btn-ghost btn-block" onclick="cerrarHoja();revisarPago('${id}')">🔄 ¿Ya pagó con tarjeta?</button>` : ""}
     <button class="btn btn-ghost btn-block" onclick="cerrarHoja();cambiarEstado('${id}','cancelada')">🚫 Cancelar</button>
     <button class="btn btn-danger btn-block" onclick="cerrarHoja();borrarCotizacion('${id}')">🗑️ Borrar</button>
   `, `<button class="btn btn-ghost" onclick="cerrarHoja()">Cerrar</button>`);
@@ -767,6 +769,10 @@ function editarCotizacion(id) {
       <label>Descuento<input type="number" inputmode="decimal" id="q-desc" value="${c.descuento || ""}"></label>
     </div>
     <label>Notas para el cliente<textarea id="q-nota" rows="2" placeholder="Tiempo de entrega, condiciones…">${esc(c.nota)}</textarea></label>
+    ${DB.ajustes.pagosURL ? `<p class="hint">💳 Esta cotización llevará botón de pago con tarjeta.</p>`
+      : `<label>Link de pago de Mercado Pago <span class="muted small">(opcional)</span>
+           <input type="url" id="q-link" value="${esc(c.linkPago || "")}" placeholder="Genéralo en la app de Mercado Pago">
+         </label>`}
     <div class="pay-row"><span>Total</span><b id="q-total">${money(totalesCot(c).total)}</b></div>`;
 
   mostrarHoja(`Cotización #${c.folio}`, cuerpo(),
@@ -777,6 +783,7 @@ function editarCotizacion(id) {
     c.cliente = $("#q-cliente").value; c.tel = $("#q-tel").value;
     c.envio = num($("#q-envio").value); c.descuento = num($("#q-desc").value);
     c.nota = $("#q-nota").value;
+    if ($("#q-link")) c.linkPago = $("#q-link").value.trim();
     $$("#q-lineas [data-f]").forEach(el => {
       const it = c.items[+el.dataset.i];
       if (!it) return;
@@ -809,7 +816,8 @@ function linkCotizacion(c) {
     f: c.folio, c: c.cliente,
     i: c.items.map(x => ({ n: x.nombre, p: num(x.precio), q: num(x.qty), d: x.nota || "", im: x.imagen || "" })),
     e: num(c.envio), x: num(c.descuento), t: c.nota,
-    w: DB.ajustes.whatsapp, lp: DB.ajustes.linkPago, dp: DB.ajustes.datosPago,
+    w: DB.ajustes.whatsapp, lp: c.linkPago || DB.ajustes.linkPago, dp: DB.ajustes.datosPago,
+    pg: (DB.ajustes.pagosURL || "").trim(),
     a: num(DB.ajustes.anticipo), tot: t.total
   };
   return `${location.origin}/cotizacion.html#q=${b64url(JSON.stringify(payload))}`;
@@ -892,6 +900,68 @@ function registrarPago(id) {
   });
 }
 
+/* ---------- Mercado Pago ---------- */
+function pagosBase() { return (DB.ajustes.pagosURL || "").trim().replace(/\/+$/, ""); }
+
+async function probarPagos() {
+  const base = pagosBase();
+  const msg = $("#s-pagos-msg");
+  if (!base) { msg.textContent = "Pega primero la dirección del servicio."; return; }
+  busy("Probando el servicio de pagos…");
+  try {
+    const r = await fetch(base + "/salud");
+    const d = await r.json();
+    unbusy();
+    if (!d.ok) throw new Error("respuesta inesperada");
+    msg.textContent = d.mercadopago
+      ? `✅ Conectado.${d.historial ? " Con historial de cobros." : " Sin historial: el botón “¿ya pagó?” no estará disponible."}${d.webhookFirmado ? "" : " Falta la clave del webhook."}`
+      : "⚠️ El servicio responde, pero todavía no tiene las credenciales de Mercado Pago.";
+  } catch (e) {
+    unbusy();
+    msg.textContent = "❌ No respondió. Revisa la dirección o si ya se publicó el servicio.";
+  }
+}
+
+async function revisarPago(id) {
+  const c = DB.cotizaciones.find(x => x.id === id);
+  const base = pagosBase();
+  if (!base) return toast("Falta conectar el servicio de pagos");
+  busy("Consultando a Mercado Pago…");
+  try {
+    const r = await fetch(`${base}/estado?folio=${encodeURIComponent(c.folio)}`);
+    const d = await r.json();
+    unbusy();
+
+    if (d.estado === "approved") {
+      const yaEsta = (c.pagos || []).some(p => p.ref === d.pagoId);
+      if (yaEsta) return toast("Ese cobro ya estaba registrado");
+      c.pagos = c.pagos || [];
+      c.pagos.push({
+        monto: num(d.monto), metodo: "Mercado Pago",
+        ref: d.pagoId || "", fecha: d.fecha || new Date().toISOString()
+      });
+      c.estado = totalesCot(c).saldo <= 0 ? "pagada" : "aprobada";
+      guardar(); renderCotizaciones();
+      toast(`✅ Pagó ${money(d.monto)} con tarjeta`);
+      return;
+    }
+
+    const textos = {
+      pendiente: "Todavía no paga. La liga de pago ya está creada.",
+      pending: "El pago está en proceso (puede ser OXXO o transferencia).",
+      in_process: "Mercado Pago está revisando el pago.",
+      rejected: "El pago fue rechazado. El cliente puede intentar otra vez.",
+      refunded: "El pago fue devuelto.",
+      sin_registro: "Nadie ha abierto la liga de pago de esta cotización.",
+      desconocido: "El servicio no guarda historial — actívalo para usar esto."
+    };
+    toast(textos[d.estado] || `Estado: ${d.estado || "desconocido"}`);
+  } catch (e) {
+    unbusy();
+    toast("No se pudo consultar el servicio");
+  }
+}
+
 function borrarCotizacion(id) {
   const c = DB.cotizaciones.find(x => x.id === id);
   if (!confirm(`¿Borrar la cotización #${c.folio}?`)) return;
@@ -907,7 +977,8 @@ const AJ_CAMPOS = [
   ["s-tarifaMano", "tarifaMano", "num"], ["s-merma", "merma", "num"],
   ["s-margen", "margen", "num"], ["s-redondeo", "redondeo", "num"],
   ["s-anticipo", "anticipo", "num"], ["s-linkPago", "linkPago", "str"],
-  ["s-datosPago", "datosPago", "str"], ["s-proxy", "proxy", "str"]
+  ["s-datosPago", "datosPago", "str"], ["s-proxy", "proxy", "str"],
+  ["s-pagosURL", "pagosURL", "str"]
 ];
 
 function pintarAjustes() {
@@ -1046,6 +1117,7 @@ function arrancar() {
     guardar(); pintarMaterialesAjustes(); pintarMateriales();
   });
   $("#s-test").addEventListener("click", async () => { leerAjustes(); await probarConexion(); });
+  $("#s-pagos-test").addEventListener("click", async () => { leerAjustes(); await probarPagos(); });
   $("#s-pin").addEventListener("click", () => {
     const p = prompt("Nuevo PIN (mínimo 4 dígitos):");
     if (p && p.trim().length >= 4) { DB.ajustes.pin = p.trim(); guardar(); toast("PIN actualizado"); }

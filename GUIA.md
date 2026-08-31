@@ -70,6 +70,48 @@ Lista todo: borradores y lo que ya está publicado. En el botón **⋯** de cada
 
 Arriba ves siempre **Por cobrar**, **Cobrado** y cuántas están abiertas.
 
+## 💳 Cobrar con tarjeta (Mercado Pago)
+
+Cuando está conectado, la cotización del cliente trae dos botones:
+**Pagar anticipo** y **Pagar todo**. El cliente paga con tarjeta, débito,
+OXXO o saldo de Mercado Pago sin salir del celular, y regresa a una página
+de "¡Pago recibido!".
+
+Luego, en el menú **⋯** de esa cotización, **🔄 ¿Ya pagó con tarjeta?**
+consulta a Mercado Pago y registra el cobro solo.
+
+**Mientras no esté conectado no se rompe nada:** la cotización simplemente
+muestra los datos de transferencia, igual que hoy.
+
+### Conectarlo (una vez, ~10 min, se necesita una compu)
+
+1. **Cuenta de Mercado Pago** — la de siempre, la que ya usas para vender.
+2. Entra a **mercadopago.com.mx/developers** → *Tus integraciones* →
+   **Crear aplicación**. Nombre: `Milo's 3D`. Producto: **Checkout Pro**.
+3. En esa aplicación → **Credenciales de producción**. Ahí está el
+   **Access Token**. Cópialo pero **no lo mandes por WhatsApp ni por correo,
+   ni lo pegues en el panel** — es como la llave de tu caja registradora.
+4. Abre la carpeta **`pagos/`** de este proyecto y sigue su `README.md`.
+   Son cuatro comandos. En uno de ellos la terminal te pide el Access Token:
+   lo pegas ahí y queda guardado en Cloudflare, invisible para todos.
+5. Al final te da una dirección que termina en **`.workers.dev`**.
+   Esa sí es pública: pégala en el panel → **Ajustes → Cobros con tarjeta**
+   y toca **Probar servicio**. Debe decir ✅.
+6. De vuelta en Mercado Pago → tu aplicación → **Webhooks**: pon
+   `https://TU-DIRECCION.workers.dev/webhook`, evento **Pagos**.
+   Copia la *clave secreta* que te muestra y guárdala con el cuarto comando
+   del README.
+
+> **Si alguna vez crees que el token se filtró:** entra a Mercado Pago →
+> tu aplicación → Credenciales de producción → genera unas nuevas.
+> Las viejas mueren en ese instante.
+
+### Probar sin cobrar de verdad
+
+En el paso 3 usa las **credenciales de prueba** en lugar de las de producción
+y paga con las tarjetas de prueba de Mercado Pago. Cuando todo funcione,
+cambia el token por el de producción.
+
 ## ⚙️ Ajustes — los números que mueven todo
 
 | Campo | Qué es | Sugerido |
@@ -82,8 +124,12 @@ Arriba ves siempre **Por cobrar**, **Cobrado** y cuántas están abiertas.
 | Redondear a | Precios "bonitos" | 5 o 10 |
 | Anticipo % | Lo que pides para arrancar | 50 |
 
-También ahí van los **materiales** (cada uno con su precio por kilo),
-el **link de pago** y los **datos de transferencia** que verá el cliente.
+En **Cobros con tarjeta** va la dirección del servicio de pagos.
+En **Otros cobros** van el link manual de Mercado Pago (por si no conectas
+el servicio: lo generas desde la app de Mercado Pago para ese monto) y los
+**datos de transferencia** que verá el cliente.
+
+También ahí van los **materiales**, cada uno con su precio por kilo.
 
 ---
 

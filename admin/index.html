@@ -217,8 +217,29 @@
       </div>
 
       <div class="card">
-        <h3 class="card-title">Cobros</h3>
-        <label>Link de pago por defecto <span class="muted small">(Mercado Pago, PayPal.me, Stripe…)</span>
+        <h3 class="card-title">Cobros con tarjeta · Mercado Pago</h3>
+        <label>Dirección del servicio de pagos
+          <input type="url" id="s-pagosURL" autocapitalize="off" autocorrect="off"
+                 placeholder="https://milos3d-pagos.xxx.workers.dev">
+        </label>
+        <button class="btn btn-ghost btn-block" id="s-pagos-test">🔌 Probar servicio</button>
+        <p class="hint" id="s-pagos-msg"></p>
+        <p class="hint">Con esto, el cliente paga con tarjeta desde la cotización.
+          <b>Tu contraseña de Mercado Pago nunca se escribe aquí</b> — vive en el servicio de pagos.
+          Mientras no lo conectes, todo sigue funcionando con transferencia y efectivo.</p>
+        <details class="det">
+          <summary>¿Cómo lo conecto?</summary>
+          <ol class="hint">
+            <li>Alguien con compu sigue las instrucciones de la carpeta <b>pagos/</b> del proyecto (~10 min, una sola vez).</li>
+            <li>Te va a dar una dirección que termina en <b>.workers.dev</b>.</li>
+            <li>Pégala arriba y toca <b>Probar servicio</b>. Debe decir ✅.</li>
+          </ol>
+        </details>
+      </div>
+
+      <div class="card">
+        <h3 class="card-title">Otros cobros</h3>
+        <label>Link de pago manual <span class="muted small">(si no usas el servicio)</span>
           <input type="url" id="s-linkPago" placeholder="https://mpago.la/...">
         </label>
         <label>Datos para transferencia

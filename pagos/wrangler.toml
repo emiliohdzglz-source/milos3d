@@ -1,0 +1,20 @@
+# MILO'S 3D — servicio de pagos
+# Los secretos NO van aquí. Se ponen con `wrangler secret put` (ver README.md).
+
+name = "milos3d-pagos"
+main = "worker.js"
+compatibility_date = "2025-01-01"
+
+[vars]
+# Dominios desde los que se puede pedir un cobro.
+# Agrega "*localhost" al final si quieres probar en tu compu.
+ORIGENES = "https://milos3d.com,https://www.milos3d.com"
+SITIO = "https://www.milos3d.com"
+
+# Historial de cobros (opcional pero recomendado: permite el botón
+# "¿ya pagó?" en el panel). Crea el espacio con:
+#   npx wrangler kv namespace create PAGOS
+# y pega abajo el id que te devuelva, quitando el # de las tres líneas.
+# [[kv_namespaces]]
+# binding = "PAGOS"
+# id = "PEGA_AQUI_EL_ID"
