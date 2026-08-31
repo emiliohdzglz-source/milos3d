@@ -1,5 +1,6 @@
 User-agent: *
 Disallow: /admin/
 Disallow: /cotizacion.html
+Disallow: /borradores.json
 
 Sitemap: https://www.milos3d.com/

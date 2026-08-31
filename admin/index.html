@@ -22,6 +22,7 @@
     <img src="../assets/logo.webp" alt="" class="lock-logo" onerror="this.style.display='none'">
     <h1>MILO'S <em>3D</em></h1>
     <p class="muted">Panel de la familia</p>
+    <input type="text" id="lock-nombre" placeholder="¿Cómo te llamas?" autocomplete="off" hidden>
     <input type="password" id="lock-pin" inputmode="numeric" placeholder="PIN" autocomplete="off">
     <button class="btn btn-primary btn-block" id="lock-go">Entrar</button>
     <p class="lock-hint muted" id="lock-hint">Primera vez: escribe el PIN que quieras y quedará guardado en este celular.</p>
@@ -32,7 +33,7 @@
 <div id="app" hidden>
 
   <header class="topbar">
-    <span class="brand">MILO'S <em>3D</em></span>
+    <span class="brand">MILO'S <em>3D</em><span class="quien" id="quien"></span></span>
     <span class="topbar-right">
       <span class="pill" id="sync-pill">sin conectar</span>
       <button class="icon-btn" id="btn-lock" title="Bloquear">🔒</button>
@@ -141,19 +142,22 @@
       </div>
 
       <div class="card">
-        <h3 class="card-title">6 · Guardar</h3>
-        <div class="row">
-          <button class="btn btn-ghost grow" id="btn-guardar">💾 Guardar borrador</button>
-          <button class="btn btn-primary grow" id="btn-publicar">🚀 Publicar</button>
-        </div>
-        <p class="hint">“Publicar” sube la foto y la ficha a milos3d.com. Tarda ~1 minuto en verse.</p>
+        <h3 class="card-title">6 · Guardar y publicar</h3>
+        <div class="checklist" id="checklist"></div>
+        <button class="btn btn-ghost btn-block" id="btn-guardar">💾 Guardar borrador</button>
+        <button class="btn btn-primary btn-block" id="btn-publicar">👀 Revisar y publicar</button>
+        <p class="hint" id="publicar-hint"></p>
         <button class="btn btn-link" id="btn-limpiar">Limpiar formulario</button>
       </div>
     </section>
 
     <!-- ---------- CATÁLOGO ---------- -->
     <section class="view" id="view-catalogo" hidden>
-      <h2 class="view-title">Catálogo</h2>
+      <div class="view-head">
+        <h2 class="view-title">Catálogo</h2>
+        <button class="btn btn-mini btn-ghost" id="btn-sync">🔄 Sincronizar</button>
+      </div>
+      <p class="hint" id="cat-aviso"></p>
       <div class="seg" id="cat-filtro">
         <button class="seg-btn active" data-f="todos">Todos</button>
         <button class="seg-btn" data-f="borrador">Borradores</button>
@@ -291,6 +295,10 @@
 
       <div class="card">
         <h3 class="card-title">Seguridad y respaldo</h3>
+        <label>Mi nombre en este celular
+          <input type="text" id="s-usuario" placeholder="Tu nombre">
+        </label>
+        <p class="hint">Se guarda quién dio de alta cada producto, quién llenó los costos y quién lo publicó.</p>
         <button class="btn btn-ghost btn-block" id="s-pin">Cambiar PIN</button>
         <button class="btn btn-ghost btn-block" id="s-export">⬇️ Descargar respaldo</button>
         <label class="btn btn-ghost btn-block">⬆️ Restaurar respaldo

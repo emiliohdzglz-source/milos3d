@@ -10,10 +10,19 @@ Funciona desde el celular y **no necesita computadora**.
 1. Abre **milos3d.com/admin/** en Safari (iPhone) o Chrome (Android).
 2. Toca **Compartir** → **Agregar a pantalla de inicio**.
 3. Queda como una app con el logo de Milo's.
-4. La primera vez que entras, escribe el **PIN** que quieras. Ese PIN queda guardado en ese celular.
+4. La primera vez que entras, pon **tu nombre** y el **PIN** que quieras.
+   Los dos quedan guardados en ese celular.
 
-> Cada celular guarda sus propios datos. Si quieres pasarlos a otro, usa
-> **Ajustes → Descargar respaldo** y luego **Restaurar respaldo** en el otro.
+### Son tres: Emilio, su esposa y su hijo
+
+Cada quien pone su nombre en su propio celular. El panel guarda **quién hizo qué**
+y lo muestra en el catálogo:
+
+> *alta **Karla** · datos **Emilio** · publicó **Emilio***
+
+Así siempre se sabe quién dio de alta el producto, quién llenó los datos de
+impresión y quién lo subió al sitio. Para cambiar tu nombre:
+**Ajustes → Mi nombre en este celular**.
 
 ### Conectar el panel con el sitio (una sola vez)
 
@@ -32,6 +41,39 @@ Si se pierde el celular, entra a GitHub y borra el token; se corta el acceso al 
 
 ---
 
+## 🤝 Cómo trabajan los tres juntos
+
+El flujo normal es este:
+
+1. **Quien sea** (esposa, hijo o Emilio) da de alta el producto desde su celular:
+   foto + liga + nombre. Toca **💾 Guardar borrador**.
+2. Ese borrador **le aparece a los tres** en el Catálogo, con la etiqueta naranja
+   de lo que le falta (*"FALTA 2"*).
+3. **Emilio** lo abre desde su celular, llena gramos y tiempo, y el precio sale solo.
+   La etiqueta cambia a verde: **LISTO PARA PUBLICAR**.
+4. Cualquiera puede publicarlo — pero **antes se ve una pantalla de revisión**
+   con la ficha tal cual va a aparecer en la tienda. Nada sale al sitio sin
+   pasar por ahí.
+
+> **El botón de publicar está bloqueado** hasta que la ficha tenga nombre, foto,
+> gramos, tiempo y precio. Mientras falte algo, el panel dice exactamente qué es.
+
+### ¿Cómo se ven los borradores en los tres celulares?
+
+Viajan por el mismo repositorio donde vive el sitio, igual que el catálogo.
+Toca **🔄 Sincronizar** en el Catálogo (o simplemente entra a esa pestaña).
+
+Viaja lo de la ficha: nombre, foto, liga, gramos y tiempo.
+**No viajan tus costos ni tus márgenes** — el precio del filamento, la tarifa
+por hora y el margen se quedan en los Ajustes de cada celular.
+
+> ⚠️ El repositorio del sitio es **público**, así que el archivo de pendientes
+> (`borradores.json`) también lo es: quien adivine la dirección vería los nombres
+> y fotos de productos que aún no salen. Los gramos y el tiempo suelen estar
+> publicados en MakerWorld de todos modos. Tus costos y márgenes **nunca** salen
+> de tu celular. Si prefieres que ni los nombres se vean, dímelo y lo movemos a
+> un lugar privado.
+
 ## ➕ Subir un producto nuevo (3 minutos)
 
 1. **Foto** — toma la foto de la pieza o sube el screenshot del diseño.
@@ -45,12 +87,16 @@ Si se pierde el celular, entra a GitHub y borra el token; se corta el acceso al 
 4. **Costo y precio** — el precio sale solo. Si quieres cobrar otra cosa,
    escríbelo en *Precio final* y abajo te dice cuánto ganas.
 5. **Ficha** — ponle nombre, toca *Generar descripción* (y edítala), elige colores.
-6. **Publicar** 🚀 — la foto y la ficha se suben a milos3d.com.
-   Tarda **como 1 minuto** en verse en la página.
+6. **👀 Revisar y publicar** — te muestra la ficha tal como se verá en la tienda,
+   con lo que cuesta, en cuánto se vende y cuánto ganas. Si algo no te gusta,
+   **Volver a editar**. Si está bien, **🚀 Publicar**: la foto y la ficha se suben
+   a milos3d.com y tardan **como 1 minuto** en verse.
 
 ## 📦 Catálogo
 
-Lista todo: borradores y lo que ya está publicado. En el botón **⋯** de cada uno:
+Lista todo: los pendientes de los tres y lo que ya está publicado. Cada uno trae
+su etiqueta —**FALTA 3**, **LISTO PARA PUBLICAR** o **PUBLICADO**— y la firma de
+quién hizo qué. En el botón **⋯** de cada uno:
 
 - **Editar** — cambiar precio, foto, descripción y volver a publicar
 - **Ocultar del sitio** — se agotó o lo pausaste (no lo borra)

@@ -13,6 +13,7 @@ const PALETA = [
 
 const DEFAULTS = {
   pin: "",
+  usuario: "",
   precioKg: 480,
   tarifaHora: 20,
   tarifaMano: 150,
@@ -46,7 +47,8 @@ function nuevoForm() {
   return {
     id: null, nombre: "", descripcion: "", link: "", imagen: "", imagenPath: "",
     gramos: 0, piezas: 1, horas: 0, minutos: 0, mano: 0, materialIdx: 0,
-    colores: [], etiquetas: "", badge: "", precioManual: null
+    colores: [], etiquetas: "", badge: "", precioManual: null,
+    creadoPor: "", costosPor: "", publicadoPor: ""
   };
 }
 
@@ -100,19 +102,36 @@ function cargar() {
    ========================================================== */
 function initLock() {
   const primera = !DB.ajustes.pin;
-  if (!primera) $("#lock-hint").textContent = "Escribe tu PIN para entrar.";
+  if (primera) {
+    $("#lock-nombre").hidden = false;
+    $("#lock-hint").textContent = "Primera vez en este celular: pon tu nombre y el PIN que quieras.";
+  } else {
+    $("#lock-hint").textContent = DB.ajustes.usuario
+      ? `Hola ${DB.ajustes.usuario}, escribe tu PIN.` : "Escribe tu PIN para entrar.";
+  }
   const entrar = () => {
     const pin = $("#lock-pin").value.trim();
-    if (pin.length < 4) return toast("El PIN necesita al menos 4 dígitos");
-    if (primera) { DB.ajustes.pin = pin; guardar(); }
-    else if (pin !== DB.ajustes.pin) { $("#lock-pin").value = ""; return toast("PIN incorrecto"); }
+    if (primera) {
+      const nombre = $("#lock-nombre").value.trim();
+      if (!nombre) return toast("Escribe tu nombre");
+      if (pin.length < 4) return toast("El PIN necesita al menos 4 dígitos");
+      DB.ajustes.usuario = nombre.slice(0, 24);
+      DB.ajustes.pin = pin;
+      guardar();
+    } else if (pin !== DB.ajustes.pin) {
+      $("#lock-pin").value = "";
+      return toast("PIN incorrecto");
+    }
     $("#lock").style.display = "none";
     $("#app").hidden = false;
     arrancar();
   };
   $("#lock-go").addEventListener("click", entrar);
-  $("#lock-pin").addEventListener("keydown", e => { if (e.key === "Enter") entrar(); });
+  [$("#lock-pin"), $("#lock-nombre")].forEach(el =>
+    el.addEventListener("keydown", e => { if (e.key === "Enter") entrar(); }));
 }
+
+function yo() { return DB.ajustes.usuario || "alguien"; }
 
 /* ==========================================================
    NAVEGACIÓN
@@ -289,6 +308,7 @@ function recalcular() {
   `;
   $("#calc-precio").textContent = money(c.precioSugerido);
   $("#f-precio").placeholder = String(c.precioSugerido);
+  if ($("#checklist")) pintarChecklist();
   $("#calc-margen").textContent = c.precio > 0
     ? `Con ${money(c.precio)} ganas ${money(c.utilidad)} por pieza (${c.margenReal.toFixed(0)}% del precio).`
     : "Captura gramos y tiempo para ver el precio.";
@@ -378,21 +398,87 @@ function guardarBorrador(silencioso) {
   if (!form.nombre.trim()) { toast("Ponle nombre al producto"); return null; }
   const c = calcular();
   if (!form.id) form.id = idUnico(slug(form.nombre));
+  const previo = DB.productos.find(p => p.id === form.id) || {};
+
   const registro = {
     ...JSON.parse(JSON.stringify(form)),
     precio: c.precio,
     costo: Math.round(c.costoPieza),
-    estado: editandoId ? (DB.productos.find(p => p.id === editandoId)?.estado || "borrador") : "borrador",
-    visible: DB.productos.find(p => p.id === form.id)?.visible !== false,
+    estado: previo.estado || "borrador",
+    visible: previo.visible !== false,
+    creadoPor: previo.creadoPor || form.creadoPor || yo(),
+    costosPor: previo.costosPor || form.costosPor || "",
+    publicadoPor: previo.publicadoPor || form.publicadoPor || "",
     actualizado: new Date().toISOString()
   };
+
+  // Quien deja completos los datos de costo queda registrado.
+  if (!registro.costosPor && tieneCostos(registro)) registro.costosPor = yo();
+
   const i = DB.productos.findIndex(p => p.id === registro.id);
   if (i >= 0) DB.productos[i] = { ...DB.productos[i], ...registro };
   else DB.productos.unshift(registro);
   editandoId = registro.id;
+  form.creadoPor = registro.creadoPor;
+  form.costosPor = registro.costosPor;
   guardar();
-  if (!silencioso) toast("Borrador guardado 💾");
+  pintarChecklist();
+  if (!silencioso) {
+    toast("Borrador guardado 💾");
+    subirBorradores();   // que lo vean los otros dos celulares
+  }
   return registro;
+}
+
+/* ---------- ¿Qué le falta a la ficha? ---------- */
+function tieneCostos(p) {
+  return num(p.gramos) > 0 && (num(p.horas) > 0 || num(p.minutos) > 0);
+}
+
+function faltantes(p) {
+  const lista = [];
+  lista.push({
+    ok: !!String(p.nombre || "").trim(), texto: "Nombre del producto",
+    ayuda: "Cómo se va a llamar en la tienda."
+  });
+  lista.push({
+    ok: !!(p.imagen || p.imagenPath), texto: "Foto del diseño",
+    ayuda: "Toma la foto de la pieza o sube el screenshot."
+  });
+  lista.push({
+    ok: num(p.gramos) > 0, texto: "Gramos de filamento",
+    ayuda: "Del laminador o de la liga de MakerWorld."
+  });
+  lista.push({
+    ok: num(p.horas) > 0 || num(p.minutos) > 0, texto: "Tiempo de impresión",
+    ayuda: "Horas y minutos que tarda la pieza."
+  });
+  lista.push({
+    ok: num(p.precioManual ?? p.precio) > 0, texto: "Precio",
+    ayuda: "Sale solo al llenar gramos y tiempo."
+  });
+  return lista;
+}
+
+function pintarChecklist() {
+  const p = { ...form, precio: calcular().precio };
+  const lista = faltantes(p);
+  const faltan = lista.filter(x => !x.ok);
+  const cont = $("#checklist");
+
+  cont.innerHTML = faltan.length
+    ? lista.map(x => `
+        <div class="chk ${x.ok ? "ok" : "falta"}">
+          <span class="mark">${x.ok ? "✓" : "○"}</span>
+          <span>${x.texto}${x.ok ? "" : `<small>${x.ayuda}</small>`}</span>
+        </div>`).join("")
+    : `<div class="chk-listo"><span>✓</span><span>Ficha completa — lista para publicar</span></div>`;
+
+  const btn = $("#btn-publicar");
+  btn.disabled = faltan.length > 0;
+  $("#publicar-hint").textContent = faltan.length
+    ? `${faltan.length === 1 ? "Falta un dato" : `Faltan ${faltan.length} datos`}. Guárdalo como borrador y quien tenga los datos de impresión lo completa.`
+    : "Te muestro cómo se va a ver antes de subirlo.";
 }
 
 function idUnico(base) {
@@ -476,6 +562,61 @@ async function probarConexion() {
   }
 }
 
+/* ---------- Revisión obligatoria antes de publicar ---------- */
+function revisarYPublicar() {
+  const p = guardarBorrador(true);
+  if (!p) return;
+
+  const faltan = faltantes(p).filter(x => !x.ok);
+  if (faltan.length) {
+    toast("Todavía falta: " + faltan.map(x => x.texto.toLowerCase()).join(", "));
+    return;
+  }
+  if (!ghOk()) { toast("Conecta el sitio primero (Ajustes)"); irA("ajustes"); return; }
+
+  const src = imgSrc(p);
+  const tags = (p.etiquetas || "").split(",").map(t => t.trim()).filter(Boolean);
+  const yaEsta = p.estado === "publicado";
+  const c = calcular();
+
+  mostrarHoja("Así se va a ver", `
+    <p class="hint" style="margin:0 0 14px">Revisa que todo esté bien. Al confirmar, esto aparece en milos3d.com.</p>
+
+    <div class="previa">
+      <div class="previa-img">
+        ${p.badge ? `<span class="previa-badge">${esc(p.badge)}</span>` : ""}
+        ${src ? `<img src="${esc(src)}" alt="" onerror="this.replaceWith(Object.assign(document.createElement('div'),{className:'vacia',textContent:'🦖'}))">` : `<div class="vacia">🦖</div>`}
+      </div>
+      <div class="previa-body">
+        <div class="previa-nombre">${esc(p.nombre)}</div>
+        <div class="previa-desc">${esc(p.descripcion) || '<i>Sin descripción</i>'}</div>
+        ${tags.length ? `<div class="previa-tags">${tags.map(t => `<span class="previa-tag">${esc(t)}</span>`).join("")}</div>` : ""}
+        ${p.colores?.length ? `<div class="previa-colores"><span class="muted small">Color:</span>${p.colores.map(x => `<i style="background:${esc(x)}"></i>`).join("")}</div>` : ""}
+        <div class="previa-foot">
+          <span class="previa-precio">${money(p.precio)} <small>c/u</small></span>
+          <span class="previa-add">+ Agregar</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="previa-nota">
+      Cuesta <b>${money(c.costoPieza)}</b> hacerlo · se vende en <b>${money(p.precio)}</b> ·
+      ganas <b>${money(c.utilidad)}</b> (${c.margenReal.toFixed(0)}%).<br>
+      <span class="muted">${num(p.gramos)} g · ${num(p.horas)}h ${num(p.minutos)}m${c.piezas > 1 ? ` · ${c.piezas} piezas por impresión` : ""}</span>
+    </div>
+
+    <div class="previa-nota" style="margin-top:10px">
+      Lo dio de alta <b>${esc(p.creadoPor || "—")}</b> ·
+      datos de impresión de <b>${esc(p.costosPor || yo())}</b> ·
+      lo publica <b>${esc(yo())}</b>
+      ${yaEsta ? "<br><span class=\"muted\">Ya estaba publicado: se reemplaza la versión que está en el sitio.</span>" : ""}
+    </div>
+  `, `<button class="btn btn-ghost" onclick="cerrarHoja()">Volver a editar</button>
+      <button class="btn btn-primary" id="confirmar-publicar">🚀 ${yaEsta ? "Actualizar" : "Publicar"}</button>`);
+
+  $("#confirmar-publicar").addEventListener("click", () => { cerrarHoja(); publicar(); });
+}
+
 /* ---------- Publicar ---------- */
 async function publicar() {
   const p = guardarBorrador(true);
@@ -527,12 +668,16 @@ async function publicar() {
     reg.estado = "publicado";
     reg.imagenPath = imagenPath;
     reg.imagen = "";               // ya vive en el repo, no ocupamos la copia local
+    reg.publicadoPor = yo();
     reg.publicado = new Date().toISOString();
+    reg.actualizado = new Date().toISOString();
     guardar();
+    subirBorradores();             // sale de la lista compartida de pendientes
 
     unbusy();
     mostrarHoja("🚀 ¡Publicado!", `
       <p><b>${esc(p.nombre)}</b> ya está en camino a milos3d.com.</p>
+      <p class="hint">Publicado por ${esc(yo())}.</p>
       <p class="hint">GitHub tarda alrededor de un minuto en actualizar la página. Si no lo ves, recarga en unos momentos.</p>
     `, `<button class="btn btn-ghost" onclick="cerrarHoja()">Cerrar</button>
         <a class="btn btn-primary" href="https://www.milos3d.com/#catalogo" target="_blank" rel="noopener">Ver el sitio</a>`);
@@ -543,6 +688,92 @@ async function publicar() {
     console.error(e);
     alert("No se pudo publicar.\n\n" + e.message);
   }
+}
+
+/* ==========================================================
+   BORRADORES COMPARTIDOS
+   Los tres celulares ven los mismos pendientes. Viajan por el
+   repositorio, igual que el catálogo. Van los datos de la ficha
+   (nombre, foto, liga, gramos, tiempo) — NO los costos ni los
+   márgenes, que se quedan en los Ajustes de cada celular.
+   ========================================================== */
+const CAMPOS_BORRADOR = [
+  "id", "nombre", "descripcion", "link", "imagenPath", "gramos", "piezas",
+  "horas", "minutos", "mano", "colores", "etiquetas", "badge",
+  "creadoPor", "costosPor", "actualizado"
+];
+
+function aBorrador(p) {
+  const o = {};
+  CAMPOS_BORRADOR.forEach(k => { if (p[k] !== undefined && p[k] !== "") o[k] = p[k]; });
+  return o;
+}
+
+let subiendoBorradores = false;
+
+async function subirFotoBorrador(p) {
+  if (!p.imagen) return;                 // sin foto nueva pendiente, nada que hacer
+  const ext = p.imagen.startsWith("data:image/webp") ? "webp" : "jpg";
+  const ruta = `images/${p.id}.${ext}`;
+  const previo = await ghLeer(ruta);
+  await ghEscribir(ruta, p.imagen.split(",")[1], `Foto del borrador ${p.nombre}`, previo?.sha);
+  p.imagenPath = ruta;   // ya vive en el repo: los otros celulares la pueden ver
+  p.imagen = "";         // deja de estar pendiente
+}
+
+async function subirBorradores() {
+  if (!ghOk() || subiendoBorradores) return;
+  subiendoBorradores = true;
+  try {
+    for (const p of DB.productos.filter(x => x.estado !== "publicado" && x.imagen)) {
+      try { await subirFotoBorrador(p); }
+      catch (e) { console.warn("Foto del borrador no subió:", e.message); }
+    }
+    guardar();
+
+    const archivo = await ghLeer("borradores.json");
+    const remotos = archivo ? JSON.parse(b64dec(archivo.content)) : { borradores: [] };
+    const porId = new Map((remotos.borradores || []).map(b => [b.id, b]));
+
+    DB.productos.forEach(p => {
+      if (p.estado === "publicado") { porId.delete(p.id); return; }   // ya no es pendiente
+      const remoto = porId.get(p.id);
+      if (!remoto || (p.actualizado || "") >= (remoto.actualizado || "")) porId.set(p.id, aBorrador(p));
+    });
+
+    const nuevo = { actualizado: new Date().toISOString(), borradores: [...porId.values()] };
+    const antes = archivo ? b64dec(archivo.content) : "";
+    const texto = JSON.stringify(nuevo, null, 2);
+    if (antes.replace(/"actualizado": "[^"]*",?\n/, "") === texto.replace(/"actualizado": "[^"]*",?\n/, "")) return;
+
+    await ghEscribir("borradores.json", b64enc(texto),
+      `Borradores actualizados por ${yo()}`, archivo?.sha);
+  } catch (e) {
+    console.warn("No se pudieron compartir los borradores:", e.message);
+  } finally {
+    subiendoBorradores = false;
+  }
+}
+
+async function bajarBorradores() {
+  try {
+    const r = await fetch("../borradores.json?t=" + Date.now(), { cache: "no-store" });
+    if (!r.ok) return 0;
+    const data = await r.json();
+    let nuevos = 0;
+    (data.borradores || []).forEach(b => {
+      const local = DB.productos.find(x => x.id === b.id);
+      if (!local) {
+        DB.productos.unshift({ ...nuevoForm(), ...b, estado: "borrador", visible: true, precioManual: null });
+        nuevos++;
+      } else if (local.estado !== "publicado" && (b.actualizado || "") > (local.actualizado || "")) {
+        Object.assign(local, b);   // el otro celular lo dejó más nuevo
+        nuevos++;
+      }
+    });
+    if (nuevos) guardar();
+    return nuevos;
+  } catch (e) { return 0; }
 }
 
 /* ---------- Traer lo que ya está publicado ---------- */
@@ -571,8 +802,16 @@ async function sincronizarCatalogo(avisar) {
         nuevos++;
       }
     });
+    const deOtros = await bajarBorradores();
     if (nuevos) guardar();
-    if (avisar) toast(nuevos ? `${nuevos} producto(s) del sitio importados` : "Todo sincronizado");
+    if (avisar) {
+      const partes = [];
+      if (nuevos) partes.push(`${nuevos} del sitio`);
+      if (deOtros) partes.push(`${deOtros} pendiente(s) de la familia`);
+      toast(partes.length ? "Sincronizado: " + partes.join(" y ") : "Todo al día");
+    } else if (deOtros) {
+      renderCatalogo();
+    }
   } catch (e) { /* offline: seguimos con lo local */ }
 }
 
@@ -587,6 +826,13 @@ function imgSrc(p) {
 
 function renderCatalogo() {
   const lista = DB.productos.filter(p => filtroCat === "todos" || p.estado === filtroCat);
+  const pendientes = DB.productos.filter(p => p.estado !== "publicado" && faltantes(p).some(x => !x.ok)).length;
+  const aviso = $("#cat-aviso");
+  if (aviso) {
+    aviso.innerHTML = pendientes
+      ? `<span>⏳ ${pendientes} producto(s) esperan datos de impresión</span>`
+      : "";
+  }
   const cont = $("#cat-list");
   if (!lista.length) {
     cont.innerHTML = `<div class="empty">Nada por aquí todavía.<br>Crea tu primer producto en la pestaña <b>Nuevo</b>.</div>`;
@@ -601,12 +847,17 @@ function renderCatalogo() {
       <div class="item-body">
         <div class="item-name">${esc(p.nombre)}</div>
         <div class="item-meta">
-          <span class="badge ${p.estado}">${p.estado}</span>
+          ${p.estado === "publicado"
+            ? `<span class="badge publicado">publicado</span>`
+            : faltantes(p).some(x => !x.ok)
+              ? `<span class="badge borrador">falta ${faltantes(p).filter(x => !x.ok).length}</span>`
+              : `<span class="badge aprobada">listo para publicar</span>`}
           ${p.visible === false ? ' <span class="badge borrador">oculto</span>' : ""}
         </div>
         <div class="item-meta">
           ${p.gramos ? `${p.gramos} g · ` : ""}${p.costo ? `costo ${money(p.costo)} · ` : ""}<span class="item-price">${money(p.precio || 0)}</span>
         </div>
+        <div class="firma">${firmaDe(p)}</div>
       </div>
       <button class="icon-btn" data-menu="${esc(p.id)}">⋯</button>
     </div>`;
@@ -614,6 +865,14 @@ function renderCatalogo() {
 
   cont.querySelectorAll("[data-menu]").forEach(b =>
     b.addEventListener("click", () => menuProducto(b.dataset.menu)));
+}
+
+function firmaDe(p) {
+  const partes = [];
+  if (p.creadoPor) partes.push(`alta <b>${esc(p.creadoPor)}</b>`);
+  if (p.costosPor) partes.push(`datos <b>${esc(p.costosPor)}</b>`);
+  if (p.publicadoPor) partes.push(`publicó <b>${esc(p.publicadoPor)}</b>`);
+  return partes.join(" · ");
 }
 
 function menuProducto(id) {
@@ -628,7 +887,7 @@ function menuProducto(id) {
   `, `<button class="btn btn-ghost" onclick="cerrarHoja()">Cerrar</button>`);
 }
 
-function publicarExistente(id) { editarProducto(id); setTimeout(publicar, 250); }
+function publicarExistente(id) { editarProducto(id); setTimeout(revisarYPublicar, 250); }
 
 async function toggleVisible(id) {
   const p = DB.productos.find(x => x.id === id);
@@ -987,6 +1246,7 @@ function pintarAjustes() {
   $("#s-repo").value = gh().repo || "";
   $("#s-branch").value = gh().branch || "main";
   $("#s-token").value = gh().token || "";
+  $("#s-usuario").value = DB.ajustes.usuario || "";
   pintarMaterialesAjustes();
 }
 
@@ -1057,6 +1317,7 @@ function cerrarHoja() { $("#sheet").hidden = true; $("#sheet-overlay").hidden = 
    ARRANQUE
    ========================================================== */
 function arrancar() {
+  $("#quien").textContent = DB.ajustes.usuario ? "· " + DB.ajustes.usuario : "";
   pintarForm();
   sincronizarCatalogo(false);
   if (ghOk()) { $("#sync-pill").textContent = "conectado"; $("#sync-pill").className = "pill ok"; }
@@ -1086,7 +1347,7 @@ function arrancar() {
   // Guardar / publicar
   $("#btn-desc").addEventListener("click", generarDescripcion);
   $("#btn-guardar").addEventListener("click", () => { guardarBorrador(); renderCatalogo(); });
-  $("#btn-publicar").addEventListener("click", publicar);
+  $("#btn-publicar").addEventListener("click", revisarYPublicar);
   $("#btn-limpiar").addEventListener("click", () => { if (confirm("¿Limpiar el formulario?")) limpiarForm(); });
 
   // Catálogo
@@ -1121,6 +1382,16 @@ function arrancar() {
   $("#s-pin").addEventListener("click", () => {
     const p = prompt("Nuevo PIN (mínimo 4 dígitos):");
     if (p && p.trim().length >= 4) { DB.ajustes.pin = p.trim(); guardar(); toast("PIN actualizado"); }
+  });
+  $("#btn-sync").addEventListener("click", async () => {
+    busy("Sincronizando con la familia…");
+    await sincronizarCatalogo(true);
+    await subirBorradores();
+    unbusy(); renderCatalogo();
+  });
+  $("#s-usuario").addEventListener("change", () => {
+    const n = $("#s-usuario").value.trim();
+    if (n) { DB.ajustes.usuario = n.slice(0, 24); guardar(); $("#quien").textContent = "· " + DB.ajustes.usuario; toast("Nombre actualizado"); }
   });
   $("#s-export").addEventListener("click", exportarRespaldo);
   $("#s-import").addEventListener("change", e => importarRespaldo(e.target.files[0]));
