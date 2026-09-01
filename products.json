@@ -13,8 +13,16 @@
       "precio": 150,
       "imagen": "images/amigo-dino.jpg",
       "badge": "Oferta: ¡Compra 2 y el 3° es GRATIS!",
-      "colores": ["#4a7c3a", "#f2d33c", "#8aa84f"],
-      "etiquetas": ["Articulado", "Colores personalizables", "Balón incluido"],
+      "colores": [
+        "#4a7c3a",
+        "#f2d33c",
+        "#8aa84f"
+      ],
+      "etiquetas": [
+        "Articulado",
+        "Colores personalizables",
+        "Balón incluido"
+      ],
       "visible": true
     },
     {
@@ -25,11 +33,24 @@
       "flyer": "images/flyer-fidget-clickers.jpg",
       "badge": "¡Ideal para fiestas y eventos!",
       "colores": [],
-      "etiquetas": ["Colores divertidos", "Personalizable con nombre", "Anti-estrés"],
+      "etiquetas": [
+        "Colores divertidos",
+        "Personalizable con nombre",
+        "Anti-estrés"
+      ],
       "paquetes": [
-        { "nombre": "25 niños", "precio": 2500 },
-        { "nombre": "50 niños", "precio": 4500 },
-        { "nombre": "100 niños", "precio": 8000 }
+        {
+          "nombre": "25 niños",
+          "precio": 2500
+        },
+        {
+          "nombre": "50 niños",
+          "precio": 4500
+        },
+        {
+          "nombre": "100 niños",
+          "precio": 8000
+        }
       ],
       "combos": [
         "Arcoíris (mixto)",
@@ -49,32 +70,103 @@
       "flyer": "images/flyer-friendship-bracelet.jpg",
       "badge": "¡Elige y combina!",
       "colores": [],
-      "etiquetas": ["Personalizable", "Fiestas y eventos", "Hecha para durar"],
+      "etiquetas": [
+        "Personalizable",
+        "Fiestas y eventos",
+        "Hecha para durar"
+      ],
       "tipo": "config",
       "precios_lista": [
-        { "nombre": "Letra", "precio": "$100" },
-        { "nombre": "Figura", "precio": "$100" },
-        { "nombre": "Dos beads", "precio": "$140" },
-        { "nombre": "Cordón", "precio": "$40/m" }
+        {
+          "nombre": "Letra",
+          "precio": "$100"
+        },
+        {
+          "nombre": "Figura",
+          "precio": "$100"
+        },
+        {
+          "nombre": "Dos beads",
+          "precio": "$140"
+        },
+        {
+          "nombre": "Cordón",
+          "precio": "$40/m"
+        }
       ],
       "configurador": {
         "letra_precio": 100,
         "figura_precio": 100,
         "beads_precio": 140,
         "cordon_precio_m": 40,
-        "figuras": ["Corazón", "Moño", "Estrella", "Huella"],
+        "figuras": [
+          "Corazón",
+          "Moño",
+          "Estrella",
+          "Huella"
+        ],
         "colores": [
-          { "nombre": "Azul", "hex": "#4a90d9" },
-          { "nombre": "Rojo", "hex": "#d93025" },
-          { "nombre": "Blanco", "hex": "#f2f2f2" },
-          { "nombre": "Menta", "hex": "#7fd8c8" },
-          { "nombre": "Amarillo", "hex": "#f2c94c" },
-          { "nombre": "Rosa mexicano", "hex": "#e91e78" },
-          { "nombre": "Rosa claro", "hex": "#f7a8c4" },
-          { "nombre": "Morado", "hex": "#8e6bc8" },
-          { "nombre": "Lila", "hex": "#b9a6e0" }
+          {
+            "nombre": "Azul",
+            "hex": "#4a90d9"
+          },
+          {
+            "nombre": "Rojo",
+            "hex": "#d93025"
+          },
+          {
+            "nombre": "Blanco",
+            "hex": "#f2f2f2"
+          },
+          {
+            "nombre": "Menta",
+            "hex": "#7fd8c8"
+          },
+          {
+            "nombre": "Amarillo",
+            "hex": "#f2c94c"
+          },
+          {
+            "nombre": "Rosa mexicano",
+            "hex": "#e91e78"
+          },
+          {
+            "nombre": "Rosa claro",
+            "hex": "#f7a8c4"
+          },
+          {
+            "nombre": "Morado",
+            "hex": "#8e6bc8"
+          },
+          {
+            "nombre": "Lila",
+            "hex": "#b9a6e0"
+          }
         ]
       },
+      "visible": true
+    },
+    {
+      "id": "ball-12-sides-fidget-clicker",
+      "nombre": "Ball 12 Sides Fidget Clicker",
+      "descripcion": "Ball 12 Sides Fidget Clicker: el antiestrés que no vas a querer soltar. Cada clic relaja, entretiene y ayuda a la concentración — perfecto para la escuela, la oficina o para traer en el bolsillo. Fabricado en PLA premium con impresión de precisión — cada pieza toma 4 h 5 min de máquina y se imprime al momento de tu pedido. Disponible en 2 colores: pídelo en tu combinación favorita. Hecho en México 🇲🇽 por MILO'S 3D. Pídelo hoy por WhatsApp y lo imprimimos para ti.",
+      "precio": 280,
+      "imagen": "images/ball-12-sides-fidget-clicker.jpg",
+      "badge": "",
+      "colores": [
+        "#1b1b1b",
+        "#d93025",
+        "#4a7c3a",
+        "#f2d33c",
+        "#4a90d9",
+        "#e91e78",
+        "#f7a8c4",
+        "#8e6bc8",
+        "#ff7a2f",
+        "#c0c8d8",
+        "#f2f2f2"
+      ],
+      "etiquetas": [],
       "visible": true
     },
     {
