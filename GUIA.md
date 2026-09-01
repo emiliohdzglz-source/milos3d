@@ -128,15 +128,21 @@ por hora y el margen se quedan en los Ajustes de cada celular.
 
 1. **Foto** — toma la foto de la pieza o sube el screenshot del diseño.
 2. **Liga** — pega el link de MakerWorld y toca *Leer datos de la liga*.
-   Si MakerWorld no se deja leer (pasa seguido), abre
-   **“Pegar datos del laminador”**, copia el texto de Bambu Studio / Handy
-   donde vienen los gramos y el tiempo, pégalo y toca *Sacar gramos y tiempo*.
-   Eso **nunca falla**.
+   El panel lee la **ficha técnica oficial del perfil de impresión**: gramos
+   reales, tiempo real, material, los colores propuestos por el diseñador
+   **y sus fotos oficiales** (la portada se descarga sola; toca otra miniatura
+   si prefieres esa). Si MakerWorld no responde, abre
+   **“Pegar datos del laminador”**, pega el texto de Bambu Studio / Handy
+   y toca *Sacar gramos y tiempo*. Eso **nunca falla**.
 3. **Datos de impresión** — revisa gramos, tiempo, material y cuántas piezas
    salen por impresión.
 4. **Costo y precio** — el precio sale solo. Si quieres cobrar otra cosa,
    escríbelo en *Precio final* y abajo te dice cuánto ganas.
-5. **Ficha** — ponle nombre, toca *Generar descripción* (y edítala), elige colores.
+5. **Ficha** — ponle nombre **en español**, toca *Generar descripción* (sale
+   100% en español y con gancho de venta — edítala a tu gusto), elige colores.
+   Con **🖼️ Generar flyer promocional** el panel arma solo una imagen
+   1080×1350 con tu logo, la foto, el precio y los colores — lista para
+   Facebook, Instagram o estados de WhatsApp (Descargar o Compartir).
 6. **👀 Revisar y publicar** — te muestra la ficha tal como se verá en la tienda,
    con lo que cuesta, en cuánto se vende y cuánto ganas. Si algo no te gusta,
    **Volver a editar**. Si está bien, **🚀 Publicar**: la foto y la ficha se suben

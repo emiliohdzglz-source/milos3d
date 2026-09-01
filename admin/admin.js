@@ -403,9 +403,168 @@ function aplicarDatos(d, origen) {
   return d;
 }
 
+/* ---------- Lectura directa de MakerWorld (API oficial) ---------- */
+function mwIdDe(url) {
+  const m = String(url).match(/makerworld\.[a-z.]+\/(?:[a-z]{2}(?:-[A-Z]{2})?\/)?models\/(\d+)/i);
+  return m ? m[1] : null;
+}
+
+/* Proxy de imágenes con CORS: weserv es gratuito y confiable; si el servicio
+   de pagos está publicado, se usa ese. */
+function mwImagenURL(u, w = 1000) {
+  const base = pagosBase();
+  if (base) return `${base}/mw/imagen?url=${encodeURIComponent(u)}`;
+  return "https://images.weserv.nl/?url=" + encodeURIComponent(String(u).replace(/^https?:\/\//, "")) + `&w=${w}&output=jpg`;
+}
+
+async function leerMakerWorld(id) {
+  const api = `https://makerworld.com/api/v1/design-service/design/${id}`;
+  const intentos = [];
+  const base = pagosBase();
+  if (base) intentos.push(`${base}/mw/design/${id}`);
+  intentos.push("https://r.jina.ai/" + api);
+  intentos.push(api); // por si algún día abren CORS
+
+  for (const u of intentos) {
+    try {
+      const r = await fetch(u, { headers: { "Accept": "application/json, text/plain" } });
+      if (!r.ok) continue;
+      const texto = await r.text();
+      const ini = texto.indexOf("{"); const fin = texto.lastIndexOf("}");
+      if (ini < 0 || fin <= ini) continue;
+      const d = JSON.parse(texto.slice(ini, fin + 1));
+      if (d && d.id) return d;
+    } catch (e) { /* siguiente */ }
+  }
+  return null;
+}
+
+function limpiaTitulo(t) {
+  return String(t || "")
+    .replace(/\s*[-–—|]\s*(free\s*)?(3d\s*)?(print(able)?\s*)?(model|file|stl|3mf)s?\s*$/i, "")
+    .replace(/\s*\|\s*MakerWorld.*$/i, "")
+    .trim().slice(0, 60);
+}
+
+function hexCercano(hex) {
+  // Acomoda el color del filamento al más parecido de la paleta del sitio
+  const h = String(hex || "").toUpperCase();
+  if (!/^#[0-9A-F]{6}$/.test(h)) return null;
+  const rgb = (x) => [1, 3, 5].map(i => parseInt(x.slice(i, i + 2), 16));
+  const [r, g, b] = rgb(h);
+  let mejor = h, dist = 90; // si nada queda cerca, conserva el hex real
+  for (const p of PALETA) {
+    const [pr, pg, pb] = rgb(p.toUpperCase());
+    const d = Math.sqrt((r - pr) ** 2 + (g - pg) ** 2 + (b - pb) ** 2);
+    if (d < dist) { dist = d; mejor = p; }
+  }
+  return mejor;
+}
+
+let fotosMW = [];
+
+function aplicarMakerWorld(d) {
+  const inst = (d.instances || []).find(i => i.isDefault) || (d.instances || [])[0] || {};
+  const cambios = [];
+
+  // Nombre (limpio, sin coletillas en inglés)
+  const nombre = limpiaTitulo(d.title);
+  if (nombre && !$("#f-nombre").value.trim()) { $("#f-nombre").value = nombre; cambios.push(`“${nombre}”`); }
+
+  // Gramos: peso del perfil o suma de filamentos
+  let gramos = num(inst.weight);
+  if (!gramos && Array.isArray(inst.instanceFilaments)) {
+    gramos = inst.instanceFilaments.reduce((s, f) => s + num(f.usedG), 0);
+  }
+  if (gramos) { $("#f-gramos").value = Math.round(gramos); cambios.push(`${Math.round(gramos)} g`); }
+
+  // Tiempo real de impresión (viene en segundos)
+  const secs = num(inst.prediction);
+  if (secs > 60) {
+    const h = Math.floor(secs / 3600), m = Math.round((secs % 3600) / 60);
+    $("#f-horas").value = h; $("#f-min").value = m;
+    cambios.push(`${h} h ${m} min`);
+  }
+
+  // Material: empata el tipo de filamento con tu lista de materiales
+  const tipos = [...new Set((inst.instanceFilaments || []).map(f => String(f.type || "").toUpperCase()).filter(Boolean))];
+  if (tipos.length) {
+    const idx = DB.ajustes.materiales.findIndex(m => tipos.some(t => m.nombre.toUpperCase().includes(t)));
+    if (idx >= 0) { form.materialIdx = idx; $("#f-material").value = String(idx); cambios.push(tipos.join("+")); }
+  }
+
+  // Colores propuestos por el diseñador
+  const hexes = [...new Set((inst.instanceFilaments || []).map(f => hexCercano(f.color)).filter(Boolean))];
+  if (hexes.length) {
+    hexes.forEach(c => { if (!form.colores.includes(c)) form.colores.push(c); });
+    cambios.push(`${hexes.length} color(es)`);
+  }
+
+  // Fotos oficiales del modelo
+  fotosMW = [...new Set([
+    d.coverUrl,
+    inst.cover,
+    ...((inst.pictures || []).map(p => (typeof p === "string" ? p : p?.url))),
+    ...(((d.designExtension || {}).design_pictures || []).map(p => (typeof p === "string" ? p : p?.url)))
+  ].filter(u => typeof u === "string" && /^https:\/\/makerworld\.bblmw\.com\//.test(u)))].slice(0, 8);
+  pintarFotosMW();
+  if (fotosMW.length && !form.imagen && !form.imagenPath) usarFotoMW(0); // portada automática
+
+  leerForm(); recalcular(); pintarSwatches(); pintarMateriales();
+  const perfil = inst.title ? ` · perfil “${inst.title}”` : "";
+  $("#link-status").textContent = (cambios.length ? "Leído de MakerWorld: " + cambios.join(" · ") + perfil : "La liga respondió pero sin datos de impresión.")
+    + (nombre && /[a-z]/i.test(nombre) ? " · 💡 Ponle nombre en español antes de publicar." : "");
+  toast(cambios.length ? "Ficha técnica cargada ✅" : "Sin datos automáticos");
+}
+
+function pintarFotosMW() {
+  const cont = $("#mw-fotos");
+  if (!cont) return;
+  if (!fotosMW.length) { cont.hidden = true; cont.innerHTML = ""; return; }
+  cont.hidden = false;
+  cont.innerHTML = `<p class="hint">Fotos oficiales del diseño — toca una para usarla como foto del producto:</p>
+    <div class="mw-strip">` +
+    fotosMW.map((u, i) => `<img class="mw-thumb" data-i="${i}" src="${esc(mwImagenURL(u, 220))}" alt="Foto ${i + 1}" loading="lazy">`).join("") +
+    `</div>`;
+  cont.querySelectorAll(".mw-thumb").forEach(img => {
+    img.addEventListener("click", () => usarFotoMW(Number(img.dataset.i)));
+  });
+}
+
+async function usarFotoMW(i) {
+  const u = fotosMW[i];
+  if (!u) return;
+  busy("Descargando la foto…");
+  try {
+    const r = await fetch(mwImagenURL(u, 1100));
+    if (!r.ok) throw new Error("HTTP " + r.status);
+    const blob = await r.blob();
+    await tomarFoto(blob);
+    toast("Foto del diseño lista ✅");
+  } catch (e) {
+    console.error(e);
+    toast("No se pudo descargar esa foto — prueba otra o toma screenshot");
+  }
+  unbusy();
+}
+
 async function leerLink() {
   const url = $("#f-link").value.trim();
   if (!/^https?:\/\//i.test(url)) return toast("Pega primero una liga válida");
+
+  // MakerWorld: lectura directa de la ficha técnica oficial
+  const mwId = mwIdDe(url);
+  if (mwId) {
+    busy("Leyendo el perfil de impresión de MakerWorld…");
+    $("#link-status").textContent = "";
+    const d = await leerMakerWorld(mwId);
+    unbusy();
+    if (d) { aplicarMakerWorld(d); return; }
+    $("#link-status").textContent = "MakerWorld no respondió esta vez. Reintenta, o usa “Pegar datos del laminador” aquí abajo.";
+    toast("No se pudo leer la liga");
+    return;
+  }
+
   const proxy = (DB.ajustes.proxy || "").trim();
   const intentos = [];
   if (proxy) intentos.push(proxy.includes("{url}") ? proxy.replace("{url}", encodeURIComponent(url)) : proxy.replace(/\/?$/, "/") + url);
@@ -489,7 +648,8 @@ function pintarMateriales() {
 }
 
 function pintarSwatches() {
-  $("#f-colores").innerHTML = PALETA.map(c =>
+  const extras = form.colores.filter(c => !PALETA.includes(c));
+  $("#f-colores").innerHTML = [...PALETA, ...extras].map(c =>
     `<button type="button" class="sw ${form.colores.includes(c) ? "on" : ""}" data-c="${c}" style="background:${c}" aria-label="Color ${c}"></button>`
   ).join("");
   $$("#f-colores .sw").forEach(b => b.addEventListener("click", () => {
@@ -537,23 +697,202 @@ function pintarForm() {
 function generarDescripcion() {
   leerForm();
   const n = form.nombre.trim() || "Esta pieza";
-  const tags = form.etiquetas.split(",").map(s => s.trim()).filter(Boolean);
+  const mat = DB.ajustes.materiales[form.materialIdx]?.nombre || "PLA";
   const c = calcular();
-  const partes = [];
-  partes.push(`${n} impreso en 3D con ${DB.ajustes.materiales[form.materialIdx]?.nombre || "PLA"} premium.`);
-  if (tags.length) partes.push(tags.join(", ") + ".");
-  if (form.gramos) partes.push(`Pieza sólida de ${Math.round(form.gramos)} g.`);
-  if (c.horasTotales >= 0.5) partes.push(`Cada una toma ${form.horas > 0 ? form.horas + " h " : ""}${form.minutos > 0 ? form.minutos + " min" : ""} de impresión — se fabrica al momento de tu pedido.`);
-  if (form.colores.length > 1) partes.push("Elige tu color favorito.");
+  const todo = (n + " " + form.etiquetas).toLowerCase();
+  const es = (...kws) => kws.some(k => todo.includes(k));
+
+  // Gancho comercial según el tipo de producto
+  let gancho;
+  if (es("fidget", "clicker", "click", "antiestr", "estres", "estrés"))
+    gancho = `${n}: el antiestrés que no vas a querer soltar. Cada clic relaja, entretiene y ayuda a la concentración — perfecto para la escuela, la oficina o para traer en el bolsillo.`;
+  else if (es("pulsera", "bracelet", "collar"))
+    gancho = `${n}: un accesorio único que se arma a tu gusto. Ideal para regalar, presumir y coleccionar.`;
+  else if (es("articulad", "dino", "drag", "flexi"))
+    gancho = `${n}: sale de la impresora ya armado y se mueve de verdad. Articulado pieza por pieza — para jugar, coleccionar o regalar.`;
+  else if (es("maceta", "lámpara", "lampara", "florero", "deco", "organizador", "portallaves"))
+    gancho = `${n}: el detalle que transforma tu espacio. Diseño moderno fabricado capa a capa con acabado profesional.`;
+  else if (es("juguete", "juego", "toy"))
+    gancho = `${n}: diversión impresa en 3D, resistente y segura. El regalo con el que siempre quedas bien.`;
+  else
+    gancho = `${n}: diseño exclusivo impreso en 3D con acabado profesional. Una pieza que no vas a encontrar en cualquier tienda.`;
+
+  const partes = [gancho];
+  const tiempoTxt = c.horasTotales >= 1
+    ? `${form.horas} h ${form.minutos ? form.minutos + " min" : ""}`.trim()
+    : (c.horasTotales > 0 ? `${form.minutos} min` : "");
+  partes.push(`Fabricado en ${mat} premium con impresión de precisión${tiempoTxt ? ` — cada pieza toma ${tiempoTxt} de máquina y se imprime al momento de tu pedido` : ""}.`);
+  if (form.colores.length > 1) partes.push(`Disponible en ${form.colores.length} colores: pídelo en tu combinación favorita.`);
+  partes.push("Hecho en México 🇲🇽 por MILO'S 3D. Pídelo hoy por WhatsApp y lo imprimimos para ti.");
+
   $("#f-desc").value = partes.join(" ");
   leerForm();
   toast("Descripción lista — edítala a tu gusto");
 }
 
+/* ==========================================================
+   FLYER PROMOCIONAL (lienzo 1080×1350, estilo de la marca)
+   ========================================================== */
+function cargaImg(src) {
+  return new Promise((res, rej) => {
+    const im = new Image();
+    im.crossOrigin = "anonymous";
+    im.onload = () => res(im);
+    im.onerror = rej;
+    im.src = src;
+  });
+}
+
+function rrect(cx, x, y, w, h, r) {
+  cx.beginPath();
+  cx.moveTo(x + r, y);
+  cx.arcTo(x + w, y, x + w, y + h, r);
+  cx.arcTo(x + w, y + h, x, y + h, r);
+  cx.arcTo(x, y + h, x, y, r);
+  cx.arcTo(x, y, x + w, y, r);
+  cx.closePath();
+}
+
+async function generarFlyer() {
+  leerForm();
+  if (!form.imagen && !form.imagenPath) { toast("Primero pon la foto del producto"); return; }
+  if (!form.nombre.trim()) { toast("Ponle nombre al producto"); return; }
+  busy("Armando el flyer…");
+  try {
+    const c = calcular();
+    const W = 1080, H = 1350;
+    const cv = document.createElement("canvas");
+    cv.width = W; cv.height = H;
+    const cx = cv.getContext("2d");
+
+    // Fondo: azul profundo con degradado y cuadrícula técnica
+    const bg = cx.createLinearGradient(0, 0, 0, H);
+    bg.addColorStop(0, "#060b18"); bg.addColorStop(.55, "#0a1226"); bg.addColorStop(1, "#04060e");
+    cx.fillStyle = bg; cx.fillRect(0, 0, W, H);
+    cx.strokeStyle = "rgba(76,201,255,0.07)"; cx.lineWidth = 1;
+    for (let x = 0; x <= W; x += 54) { cx.beginPath(); cx.moveTo(x, 0); cx.lineTo(x, H); cx.stroke(); }
+    for (let y = 0; y <= H; y += 54) { cx.beginPath(); cx.moveTo(0, y); cx.lineTo(W, y); cx.stroke(); }
+    // Resplandor central
+    const glow = cx.createRadialGradient(W / 2, 560, 80, W / 2, 560, 620);
+    glow.addColorStop(0, "rgba(47,123,255,0.22)"); glow.addColorStop(1, "rgba(47,123,255,0)");
+    cx.fillStyle = glow; cx.fillRect(0, 0, W, H);
+
+    // Logo arriba
+    try {
+      const logo = await cargaImg("../assets/logo.webp");
+      const lh = 170, lw = logo.width * (lh / logo.height);
+      cx.shadowColor = "rgba(76,201,255,.55)"; cx.shadowBlur = 30;
+      cx.drawImage(logo, (W - lw) / 2, 34, lw, lh);
+      cx.shadowBlur = 0;
+    } catch (e) { /* sin logo no pasa nada */ }
+
+    // Foto del producto en marco redondeado con glow
+    const foto = await cargaImg(form.imagen || ("../" + form.imagenPath));
+    const FS = 640, fx = (W - FS) / 2, fy = 250;
+    cx.save();
+    cx.shadowColor = "rgba(76,201,255,.45)"; cx.shadowBlur = 46;
+    rrect(cx, fx, fy, FS, FS, 34); cx.fillStyle = "#0d1730"; cx.fill();
+    cx.shadowBlur = 0;
+    rrect(cx, fx, fy, FS, FS, 34); cx.clip();
+    const esc_ = Math.max(FS / foto.width, FS / foto.height);
+    cx.drawImage(foto, fx + (FS - foto.width * esc_) / 2, fy + (FS - foto.height * esc_) / 2, foto.width * esc_, foto.height * esc_);
+    cx.restore();
+    cx.strokeStyle = "rgba(76,201,255,.6)"; cx.lineWidth = 3;
+    rrect(cx, fx, fy, FS, FS, 34); cx.stroke();
+
+    // Etiqueta naranja (badge)
+    if (form.badge) {
+      cx.font = "700 34px -apple-system, 'Segoe UI', sans-serif";
+      const bw = cx.measureText(form.badge).width + 56;
+      cx.save();
+      cx.translate(fx + FS - bw * 0.45, fy + 8); cx.rotate(0.06);
+      rrect(cx, 0, 0, bw, 62, 31);
+      const gb = cx.createLinearGradient(0, 0, bw, 0);
+      gb.addColorStop(0, "#ffd23c"); gb.addColorStop(1, "#ff9d2f");
+      cx.fillStyle = gb; cx.shadowColor = "rgba(255,170,40,.5)"; cx.shadowBlur = 22; cx.fill();
+      cx.shadowBlur = 0;
+      cx.fillStyle = "#221600"; cx.textAlign = "center"; cx.textBaseline = "middle";
+      cx.fillText(form.badge, bw / 2, 33);
+      cx.restore();
+    }
+
+    // Nombre del producto (ajusta tamaño al ancho)
+    cx.textAlign = "center"; cx.textBaseline = "alphabetic";
+    let fz = 72;
+    cx.font = `800 ${fz}px -apple-system, 'Segoe UI', sans-serif`;
+    while (cx.measureText(form.nombre.toUpperCase()).width > W - 120 && fz > 34) {
+      fz -= 4; cx.font = `800 ${fz}px -apple-system, 'Segoe UI', sans-serif`;
+    }
+    const grad = cx.createLinearGradient(0, 950, 0, 1020);
+    grad.addColorStop(0, "#ffffff"); grad.addColorStop(.5, "#bcd0f0"); grad.addColorStop(1, "#7e97c4");
+    cx.fillStyle = grad;
+    cx.shadowColor = "rgba(76,201,255,.5)"; cx.shadowBlur = 26;
+    cx.fillText(form.nombre.toUpperCase(), W / 2, 1005);
+    cx.shadowBlur = 0;
+
+    // Burbuja de precio
+    const precioTxt = money(c.precio);
+    cx.font = "900 76px -apple-system, 'Segoe UI', sans-serif";
+    const pw = cx.measureText(precioTxt).width + 110;
+    const px = (W - pw) / 2, py = 1050;
+    rrect(cx, px, py, pw, 112, 56);
+    const gp = cx.createLinearGradient(px, 0, px + pw, 0);
+    gp.addColorStop(0, "#4cc9ff"); gp.addColorStop(1, "#2f7bff");
+    cx.fillStyle = gp; cx.shadowColor = "rgba(76,201,255,.6)"; cx.shadowBlur = 34; cx.fill();
+    cx.shadowBlur = 0;
+    cx.fillStyle = "#021226"; cx.textAlign = "center"; cx.textBaseline = "middle";
+    cx.fillText(precioTxt, W / 2, py + 60);
+
+    // Colores disponibles
+    if (form.colores.length) {
+      const n = Math.min(form.colores.length, 9), R = 17, gap = 50;
+      const x0 = W / 2 - ((n - 1) * gap) / 2;
+      form.colores.slice(0, 9).forEach((col, i) => {
+        cx.beginPath(); cx.arc(x0 + i * gap, 1216, R, 0, Math.PI * 2);
+        cx.fillStyle = col; cx.fill();
+        cx.strokeStyle = "rgba(255,255,255,.55)"; cx.lineWidth = 2.5; cx.stroke();
+      });
+    }
+
+    // Pie: contacto
+    cx.font = "700 34px -apple-system, 'Segoe UI', sans-serif";
+    cx.fillStyle = "#9fb0d0";
+    cx.fillText("milos3d.com  ·  WhatsApp 442 783 1563", W / 2, 1305);
+
+    const data = cv.toDataURL("image/jpeg", 0.92);
+    $("#flyer-img").src = data;
+    $("#flyer-out").hidden = false;
+    $("#flyer-dl").href = data;
+    $("#flyer-dl").download = `flyer-${slug(form.nombre)}.jpg`;
+    form._flyer = data;
+    toast("Flyer listo 🖼️");
+  } catch (e) {
+    console.error(e);
+    toast("No se pudo armar el flyer — revisa la foto");
+  }
+  unbusy();
+}
+
+async function compartirFlyer() {
+  if (!form._flyer) return toast("Genera primero el flyer");
+  try {
+    const blob = await (await fetch(form._flyer)).blob();
+    const file = new File([blob], `flyer-${slug(form.nombre)}.jpg`, { type: "image/jpeg" });
+    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+      await navigator.share({ files: [file], title: form.nombre });
+    } else {
+      toast("Tu navegador no comparte archivos — usa Descargar");
+    }
+  } catch (e) { /* usuario canceló */ }
+}
+
 function limpiarForm() {
   form = nuevoForm();
   editandoId = null;
+  fotosMW = [];
   pintarForm();
+  pintarFotosMW();
+  const fo = $("#flyer-out"); if (fo) { fo.hidden = true; $("#flyer-img").removeAttribute("src"); }
   $("#f-paste").value = "";
   window.scrollTo(0, 0);
 }
@@ -1592,6 +1931,8 @@ function arrancar() {
 
   // Guardar / publicar
   $("#btn-desc").addEventListener("click", generarDescripcion);
+  $("#btn-flyer").addEventListener("click", generarFlyer);
+  $("#flyer-share").addEventListener("click", compartirFlyer);
   $("#btn-guardar").addEventListener("click", () => { guardarBorrador(); renderCatalogo(); });
   $("#btn-publicar").addEventListener("click", revisarYPublicar);
   $("#btn-limpiar").addEventListener("click", () => { if (confirm("¿Limpiar el formulario?")) limpiarForm(); });

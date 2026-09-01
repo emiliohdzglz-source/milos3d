@@ -106,6 +106,7 @@
         <input type="url" id="f-link" placeholder="https://makerworld.com/... o liga de Bambu Handy" inputmode="url">
         <button class="btn btn-ghost btn-block" id="btn-leer">🔎 Leer datos de la liga</button>
         <p class="hint" id="link-status"></p>
+        <div id="mw-fotos" hidden></div>
 
         <details class="det">
           <summary>Pegar datos del laminador (lo más rápido y seguro)</summary>
@@ -164,6 +165,15 @@
           <textarea id="f-desc" rows="3" placeholder="Se genera sola si la dejas vacía"></textarea>
         </label>
         <button class="btn btn-ghost btn-block" id="btn-desc">✍️ Generar descripción</button>
+        <button class="btn btn-ghost btn-block" id="btn-flyer">🖼️ Generar flyer promocional</button>
+        <div id="flyer-out" hidden>
+          <img id="flyer-img" alt="Flyer del producto" class="flyer-img">
+          <div class="row">
+            <a class="btn btn-ghost grow" id="flyer-dl" download>⬇️ Descargar</a>
+            <button class="btn btn-ghost grow" id="flyer-share" type="button">📤 Compartir</button>
+          </div>
+          <p class="hint">Listo para Facebook, Instagram o estados de WhatsApp.</p>
+        </div>
         <label>Etiqueta naranja (opcional)
           <input type="text" id="f-badge" placeholder="Ej: ¡Nuevo!">
         </label>

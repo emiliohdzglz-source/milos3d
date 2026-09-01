@@ -390,6 +390,37 @@ export default {
         return new Response(r.body, { status: r.status, headers: { ...Object.fromEntries(r.headers), ...cabeceras } });
       }
 
+      /* Lee la ficha técnica de un modelo de MakerWorld (el navegador no puede
+         hacerlo directo por CORS). Sólo lectura, sin credenciales. */
+      if (url.pathname.startsWith("/mw/design/") && request.method === "GET") {
+        const id = url.pathname.split("/").pop();
+        if (!/^\d{1,12}$/.test(id)) return json({ error: "id inválido" }, 400, cabeceras);
+        const r = await fetch(`https://makerworld.com/api/v1/design-service/design/${id}`, {
+          headers: { "User-Agent": "Mozilla/5.0", "Accept": "application/json" }
+        });
+        if (!r.ok) return json({ error: "MakerWorld respondió " + r.status }, 502, cabeceras);
+        return new Response(r.body, {
+          status: 200,
+          headers: { "Content-Type": "application/json; charset=utf-8", "Cache-Control": "public, max-age=3600", ...cabeceras }
+        });
+      }
+
+      /* Proxy de imágenes, restringido al CDN de MakerWorld. */
+      if (url.pathname === "/mw/imagen" && request.method === "GET") {
+        const u = url.searchParams.get("url") || "";
+        if (!/^https:\/\/makerworld\.bblmw\.com\//.test(u)) return json({ error: "sólo imágenes de MakerWorld" }, 400, cabeceras);
+        const r = await fetch(u, { headers: { "User-Agent": "Mozilla/5.0" } });
+        if (!r.ok) return json({ error: "imagen no disponible" }, 502, cabeceras);
+        return new Response(r.body, {
+          status: 200,
+          headers: {
+            "Content-Type": r.headers.get("Content-Type") || "image/jpeg",
+            "Cache-Control": "public, max-age=86400",
+            ...cabeceras
+          }
+        });
+      }
+
       return json({ error: "no encontrado" }, 404, cabeceras);
     } catch (e) {
       console.error(e);
