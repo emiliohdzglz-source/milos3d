@@ -10,7 +10,33 @@ Funciona desde el celular y **no necesita computadora**.
 1. Abre **milos3d.com/admin/** en Safari (iPhone) o Chrome (Android).
 2. Toca **Compartir** → **Agregar a pantalla de inicio**.
 3. Queda como una app con el logo de Milo's.
-4. La primera vez que entras, pon **tu nombre** y **crea tu contraseña**.
+4. La primera vez que entras, **eliges tu nombre de la lista** y creas tu contraseña.
+
+## 👥 Quién puede ser administrador
+
+El panel es de **tres personas y nada más: Emilio, Karla y Milo.** No hay pantalla
+de "dar de alta un usuario nuevo" y no la va a haber por accidente:
+
+- Al entrar la primera vez no se escribe un nombre: se **elige de una lista** de
+  esos tres. Cualquier otro nombre no existe para el panel.
+- El servicio (el Worker de pagos) tiene la misma lista **en su código**. Sólo a
+  esos tres les entrega el token de GitHub, que es lo único que puede publicar en
+  milos3d.com. A cualquier otro nombre le contesta *"no está en la lista"* sin
+  siquiera revisar su código.
+- Poner un código de 2 pasos nuevo en Cloudflare **no alcanza**: si el nombre no
+  está en la lista, el servicio lo ignora y lo reporta como *código ignorado* en
+  **Ajustes → Verificación de 2 pasos → Revisar**. Si ahí aparece un nombre que
+  nadie puso, es una alerta.
+
+**Para agregar o quitar a alguien** hay que editar el código (`ADMINS` en
+`pagos/worker.js` y en `admin/admin.js`), subirlo a GitHub y volver a publicar el
+servicio. Es a propósito: no se puede hacer desde el celular ni desde el panel, y
+el cambio queda firmado en el historial del repositorio.
+
+> Lo único que esto no puede impedir es que alguien **con el token de GitHub en la
+> mano** lo pegue a mano en otro celular. Ese token es la llave maestra: no se
+> comparte, y si se pierde un celular se borra en github.com → *Settings →
+> Developer settings → Personal access tokens*.
 
 ## 🔐 Cómo se entra al panel
 
@@ -61,14 +87,16 @@ El panel se bloquea solo a los 5 minutos sin usarlo (ajustable en Ajustes, o
 
 ### Son tres: Emilio, su esposa y su hijo
 
-Cada quien pone su nombre en su propio celular. El panel guarda **quién hizo qué**
-y lo muestra en el catálogo:
+Cada quien elige su nombre de la lista en su propio celular — son esos tres y no
+hay forma de agregar otro desde el panel. El panel guarda **quién hizo qué** y lo
+muestra en el catálogo:
 
 > *alta **Karla** · datos **Emilio** · publicó **Emilio***
 
 Así siempre se sabe quién dio de alta el producto, quién llenó los datos de
 impresión y quién lo subió al sitio. Para cambiar tu nombre:
-**Ajustes → Seguridad → Mi nombre en este celular**.
+**Ajustes → Seguridad → Mi nombre en este celular** (sólo se puede elegir uno de
+los tres).
 
 > Cada quien tiene **su propia contraseña en su propio celular**. No hay una
 > cuenta compartida: si le cambias la contraseña a tu celular, el de Karla sigue
@@ -245,6 +273,8 @@ Para que no te sorprenda nada:
 | Alguien roba el celular y sabe la contraseña | No. Cambia el token en GitHub |
 | Alguien roba el celular y **no** sabe la contraseña | Sí. El token es ilegible |
 | Alguien entra a milos3d.com/admin/ desde su compu | Sí. No tiene tu bóveda: vería un panel vacío y no puede publicar |
+| Alguien quiere darse de alta como administrador | No puede. La lista (Emilio, Karla, Milo) vive en el código del servicio |
+| Alguien mete un código de 2 pasos nuevo en Cloudflare | Sí. El servicio lo ignora y te lo reporta como "código ignorado" |
 | Alguien te adivina la contraseña a fuerza bruta | Muy difícil: cada intento tarda ~0.1 s por diseño |
 | Alguien te saca la contraseña por engaño | Sólo con verificación de 2 pasos prendida |
 

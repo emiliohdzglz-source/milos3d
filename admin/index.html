@@ -25,7 +25,12 @@
     <!-- Primer ingreso en este celular -->
     <div class="lock-paso" id="paso-registro" hidden>
       <p class="muted">Primera vez en este celular</p>
-      <input type="text" id="reg-nombre" placeholder="¿Cómo te llamas?" autocomplete="off">
+      <select id="reg-nombre">
+        <option value="">¿Quién eres?</option>
+        <option>Emilio</option>
+        <option>Karla</option>
+        <option>Milo</option>
+      </select>
       <input type="password" id="reg-clave" placeholder="Crea tu contraseña" autocomplete="new-password">
       <div class="barra-fuerza"><i id="fuerza-barra"></i></div>
       <p class="fuerza-txt muted" id="fuerza-txt">Mínimo 8 caracteres.</p>
@@ -339,7 +344,12 @@
       <div class="card">
         <h3 class="card-title">Seguridad</h3>
         <label>Mi nombre en este celular
-          <input type="text" id="s-usuario" placeholder="Tu nombre">
+          <select id="s-usuario">
+            <option value="">Elige tu nombre</option>
+            <option>Emilio</option>
+            <option>Karla</option>
+            <option>Milo</option>
+          </select>
         </label>
         <p class="hint">Se guarda quién dio de alta cada producto, quién llenó los costos y quién lo publicó.</p>
 
