@@ -22,7 +22,7 @@ const PALETA = [
    firmas de "quién hizo qué".
    Para cambiarla hay que editar el código y volver a publicar.
    ========================================================== */
-const ADMINS = ["Emilio", "Karla", "Milo"];
+const ADMINS = ["Ale", "Emilio papá", "Milo"];
 
 const normNombre = (n) => String(n || "").toUpperCase()
   .normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^A-Z0-9]/g, "");

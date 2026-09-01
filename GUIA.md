@@ -14,7 +14,7 @@ Funciona desde el celular y **no necesita computadora**.
 
 ## 👥 Quién puede ser administrador
 
-El panel es de **tres personas y nada más: Emilio, Karla y Milo.** No hay pantalla
+El panel es de **tres personas y nada más: Ale, Emilio papá y Milo.** No hay pantalla
 de "dar de alta un usuario nuevo" y no la va a haber por accidente:
 
 - Al entrar la primera vez no se escribe un nombre: se **elige de una lista** de
@@ -85,13 +85,13 @@ Los pasos están en **pagos/README.md**. Después, en el panel:
 El panel se bloquea solo a los 5 minutos sin usarlo (ajustable en Ajustes, o
 **🔒 Bloquear ahora** cuando le prestas el celular a alguien).
 
-### Son tres: Emilio, su esposa y su hijo
+### Son tres: Ale, Emilio papá y Milo
 
 Cada quien elige su nombre de la lista en su propio celular — son esos tres y no
 hay forma de agregar otro desde el panel. El panel guarda **quién hizo qué** y lo
 muestra en el catálogo:
 
-> *alta **Karla** · datos **Emilio** · publicó **Emilio***
+> *alta **Ale** · datos **Emilio papá** · publicó **Emilio papá***
 
 Así siempre se sabe quién dio de alta el producto, quién llenó los datos de
 impresión y quién lo subió al sitio. Para cambiar tu nombre:
@@ -99,7 +99,7 @@ impresión y quién lo subió al sitio. Para cambiar tu nombre:
 los tres).
 
 > Cada quien tiene **su propia contraseña en su propio celular**. No hay una
-> cuenta compartida: si le cambias la contraseña a tu celular, el de Karla sigue
+> cuenta compartida: si le cambias la contraseña a tu celular, el de Ale sigue
 > igual.
 
 ### Conectar el panel con el sitio (una sola vez)
@@ -273,7 +273,7 @@ Para que no te sorprenda nada:
 | Alguien roba el celular y sabe la contraseña | No. Cambia el token en GitHub |
 | Alguien roba el celular y **no** sabe la contraseña | Sí. El token es ilegible |
 | Alguien entra a milos3d.com/admin/ desde su compu | Sí. No tiene tu bóveda: vería un panel vacío y no puede publicar |
-| Alguien quiere darse de alta como administrador | No puede. La lista (Emilio, Karla, Milo) vive en el código del servicio |
+| Alguien quiere darse de alta como administrador | No puede. La lista (Ale, Emilio papá, Milo) vive en el código del servicio |
 | Alguien mete un código de 2 pasos nuevo en Cloudflare | Sí. El servicio lo ignora y te lo reporta como "código ignorado" |
 | Alguien te adivina la contraseña a fuerza bruta | Muy difícil: cada intento tarda ~0.1 s por diseño |
 | Alguien te saca la contraseña por engaño | Sólo con verificación de 2 pasos prendida |

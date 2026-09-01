@@ -34,6 +34,22 @@ npx wrangler deploy
 Al terminar te da una dirección tipo
 `https://milos3d-pagos.TU-USUARIO.workers.dev`. **Guárdala.**
 
+### De dónde sale cada credencial de Mercado Pago
+
+Entra a **mercadopago.com.mx → Tu negocio → Configuración → Gestión y
+administración → Tus integraciones** y abre tu aplicación:
+
+- **Credenciales de producción → Access Token**: es el del paso 3. Empieza con
+  `APP_USR-`. Es el que cobra de verdad; el de *prueba* no mueve dinero.
+- **Webhooks / Notificaciones**: registra la URL
+  `https://TU-DIRECCION.workers.dev/webhook`, marca el evento **Pagos**, y
+  copia la **clave secreta** que te muestra ahí — ésa es la del paso 4. Sirve
+  para que nadie pueda inventar avisos de "ya pagó" que no vengan de Mercado
+  Pago.
+
+Sin el webhook los cobros funcionan igual; lo que no funciona es el botón
+**"¿ya pagó con tarjeta?"** del panel, porque nadie le avisa al servicio.
+
 ```bash
 # 3. Guardar el Access Token de Mercado Pago.
 #    Te lo va a pedir en la terminal y NO se ve mientras lo pegas.
@@ -95,9 +111,9 @@ npx wrangler secret put GH_TOKEN
 #    Genera cada una con este comando y guarda el resultado:
 node -e "const b='ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';console.log([...crypto.getRandomValues(new Uint8Array(20))].map(x=>b[x%32]).join(''))"
 
-npx wrangler secret put TOTP_EMILIO     # pega la semilla de Emilio
-npx wrangler secret put TOTP_KARLA      # otra distinta
-npx wrangler secret put TOTP_MILO       # otra distinta
+npx wrangler secret put TOTP_ALE         # pega la semilla de Ale
+npx wrangler secret put TOTP_EMILIOPAPA  # otra distinta
+npx wrangler secret put TOTP_MILO        # otra distinta
 
 # 3. Republicar
 npx wrangler deploy
@@ -110,9 +126,9 @@ llavero del iPhone) → **Agregar cuenta** → **Escribir clave manualmente**:
 - Clave: la semilla que le tocó
 - Tipo: **Basada en tiempo**
 
-> El nombre del secreto tiene que coincidir con el nombre que cada quien puso en
-> el panel: si en el panel dice "Karla", el secreto es `TOTP_KARLA`. Sin acentos
-> y sin espacios.
+> El nombre del secreto sale del nombre del panel, en mayúsculas, sin acentos y
+> sin espacios: "Ale" → `TOTP_ALE`, "Emilio papá" → `TOTP_EMILIOPAPA`,
+> "Milo" → `TOTP_MILO`.
 
 ### Lista cerrada: quién puede ser administrador
 
@@ -121,7 +137,7 @@ de GitHub a las personas que están en la constante `ADMINS`, arriba de todo en
 `worker.js`:
 
 ```js
-const ADMINS = ["EMILIO", "KARLA", "MILO"];
+const ADMINS = ["Ale", "Emilio papá", "Milo"];
 ```
 
 Si llega una petición a `/panel/token` con cualquier otro nombre, se rechaza con

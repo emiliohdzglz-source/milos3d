@@ -8,7 +8,7 @@
  *   MP_ACCESS_TOKEN    — Access token de producción de Mercado Pago
  *   MP_WEBHOOK_SECRET  — Clave secreta del webhook (opcional pero recomendada)
  *   GH_TOKEN           — Token de GitHub que publica en el sitio (2 pasos)
- *   TOTP_<NOMBRE>      — Semilla base32 de cada persona (TOTP_EMILIO, TOTP_KARLA…)
+ *   TOTP_<NOMBRE>      — Semilla base32 de cada persona (TOTP_ALE, TOTP_EMILIOPAPA…)
  *
  * Variables (en wrangler.toml):
  *   ORIGENES           — dominios permitidos, separados por coma
@@ -322,14 +322,20 @@ async function totpValido(semilla, codigo, ventana = 1) {
    celular. Aunque alguien entrara a la cuenta de Cloudflare y
    pusiera un TOTP_ nuevo, el servicio lo ignora.
    ========================================================== */
-const ADMINS = ["EMILIO", "KARLA", "MILO"];
+const ADMINS = ["Ale", "Emilio papá", "Milo"];
 
+/* El nombre se compara sin acentos, sin espacios y sin mayúsculas, así que
+   "Emilio papá" y "emilio papa" son la misma persona. Ese mismo texto es el
+   que da el nombre del secreto: "Emilio papá" → TOTP_EMILIOPAPA. */
 const normalizarNombre = (u) => String(u || "").toUpperCase()
   .normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^A-Z0-9]/g, "");
 
+const CLAVES_ADMIN = ADMINS.map(normalizarNombre);
+
 const claveUsuario = (u) => "TOTP_" + normalizarNombre(u);
-const esAdmin = (u) => ADMINS.includes(normalizarNombre(u));
-const bonito = (n) => n.charAt(0) + n.slice(1).toLowerCase();
+const esAdmin = (u) => CLAVES_ADMIN.includes(normalizarNombre(u));
+const bonito = (clave) => ADMINS[CLAVES_ADMIN.indexOf(clave)] ||
+  (clave.charAt(0) + clave.slice(1).toLowerCase());
 
 /* Qué códigos hay puestos y cuáles se están ignorando por no estar
    en la lista. Los ignorados se reportan para que se noten: si un
@@ -339,9 +345,9 @@ function estado2FA(env) {
     .filter(k => /^TOTP_[A-Z0-9]+$/.test(k) && env[k])
     .map(k => k.slice(5));
   return {
-    administradores: ADMINS.map(bonito),
-    usuarios2FA: puestos.filter(n => ADMINS.includes(n)).map(bonito),
-    ignorados: puestos.filter(n => !ADMINS.includes(n)).map(bonito)
+    administradores: ADMINS,
+    usuarios2FA: puestos.filter(n => CLAVES_ADMIN.includes(n)).map(bonito),
+    ignorados: puestos.filter(n => !CLAVES_ADMIN.includes(n)).map(bonito)
   };
 }
 
