@@ -33,6 +33,28 @@ de "dar de alta un usuario nuevo" y no la va a haber por accidente:
 servicio. Es a propósito: no se puede hacer desde el celular ni desde el panel, y
 el cambio queda firmado en el historial del repositorio.
 
+### El token es de cada aparato, no de la cuenta
+
+Esto sorprende y conviene tenerlo claro: **el token no viaja.** Vive cifrado
+dentro del aparato donde se pegó. Si lo conectaste en tu iPhone, la MacBook de
+Ale no lo tiene — ella verá *"conecta el sitio"* y el panel le pedirá el token
+otra vez. No está fallando: así está hecho.
+
+Hay dos formas de resolverlo, y son distintas:
+
+1. **Pegar el token en cada aparato.** Simple, pero hay una copia del token en
+   cada uno, y GitHub sólo te enseña el token **una vez**: si ya cerraste esa
+   pantalla, no se recupera — hay que generar uno nuevo y borrar el viejo.
+2. **Prender la verificación de 2 pasos** (`pagos/README.md`). El token deja de
+   estar en los celulares: vive en el servicio y cada quien lo recibe con su
+   código de 6 dígitos, desde cualquier aparato, sin volver a pegar nada. Es la
+   buena si van a ser tres personas.
+
+> **Ojo con Safari:** si abres el panel como página normal y no lo usas en una
+> semana, Safari borra solo lo que el sitio guardó — incluida la bóveda, y con
+> ella el token. Para que no pase, agrégalo a la pantalla de inicio (iPhone) o
+> al Dock (Mac) y ábrelo desde ahí.
+
 > Lo único que esto no puede impedir es que alguien **con el token de GitHub en la
 > mano** lo pegue a mano en otro celular. Ese token es la llave maestra: no se
 > comparte, y si se pierde un celular se borra en github.com → *Settings →

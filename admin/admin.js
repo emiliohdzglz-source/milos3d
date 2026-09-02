@@ -1090,7 +1090,13 @@ async function ghEscribir(path, contenidoB64, mensaje, sha) {
 }
 
 async function probarConexion() {
-  if (!ghOk()) { $("#s-test-msg").textContent = "Faltan datos (usuario, repo o token)."; return false; }
+  if (!ghOk()) {
+    const g = gh();
+    $("#s-test-msg").textContent = (g.owner && g.repo && !g.token)
+      ? "Falta el token en ESTE aparato. El token no viaja de un celular a otro: cada quien pega el suyo aquí, o se prende la verificación de 2 pasos y entonces lo entrega el servicio."
+      : "Faltan datos (usuario, repo o token).";
+    return false;
+  }
   busy("Probando conexión…");
   try {
     const j = await ghLeer("products.json");
@@ -1814,8 +1820,9 @@ function pintarEstadoSeguridad() {
     fila(bio, bio ? "Face ID / huella activo" : "Face ID / huella apagado",
       bio ? "La llave sale del sensor de este celular."
           : "Sólo se activa si tu navegador lo permite de verdad.") +
-    fila(tok, tok ? "Token guardado y cifrado" : "Falta el token de GitHub",
-      tok ? "Vive en la bóveda de este celular." : "Sin él no se puede publicar.");
+    fila(tok, tok ? "Token guardado y cifrado" : "Falta el token en este aparato",
+      tok ? "Vive en la bóveda de este celular y no sale de aquí."
+          : "El token no se comparte entre aparatos: cada uno guarda el suyo. Pégalo abajo, o prende la verificación de 2 pasos para que lo entregue el servicio.");
 
   const d = $("#s-estado-2fa");
   if (d) d.innerHTML = dos
