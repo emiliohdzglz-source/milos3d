@@ -12,7 +12,11 @@ const isTouch = window.matchMedia("(hover: none), (pointer: coarse)").matches;
 /* ---------- Cargar productos ---------- */
 async function init() {
   try {
-    const res = await fetch("products.json", { cache: "no-store" });
+    // `no-store` sólo evita el caché del navegador; la red de GitHub Pages
+    // guarda una copia unos minutos y por eso un producto recién publicado
+    // tardaba en aparecer. La marca de tiempo pide una dirección distinta
+    // cada vez, así que siempre llega la versión de hoy.
+    const res = await fetch("products.json?v=" + Date.now(), { cache: "no-store" });
     const data = await res.json();
     CONFIG = { ...CONFIG, ...data.config };
     PRODUCTOS = (data.productos || []).filter(p => p.visible !== false);

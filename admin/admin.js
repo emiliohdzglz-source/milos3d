@@ -11,6 +11,23 @@ const PALETA = [
   "#1b1b1b", "#c0c8d8", "#4cc9ff"
 ];
 
+/* ==========================================================
+   QUIÉNES PUEDEN USAR EL PANEL
+   ----------------------------------------------------------
+   Lista cerrada: nadie más se puede dar de alta. La copia que
+   manda está en el servicio (pagos/worker.js): aunque alguien
+   editara este archivo en su navegador, el token de GitHub no
+   sale del Worker si el nombre no está en la lista de allá.
+   Ésta de aquí evita el alta por error y mantiene honestas las
+   firmas de "quién hizo qué".
+   Para cambiarla hay que editar el código y volver a publicar.
+   ========================================================== */
+const ADMINS = ["Ale", "Emilio papá", "Milo"];
+
+const normNombre = (n) => String(n || "").toUpperCase()
+  .normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^A-Z0-9]/g, "");
+const nombreAdmin = (n) => ADMINS.find(a => normNombre(a) === normNombre(n)) || "";
+
 const DEFAULTS = {
   usuario: "",
   autolock: 5,
@@ -98,6 +115,9 @@ function cargar() {
       DB = { ...DB, ...d };
       DB.ajustes = { ...DEFAULTS, ...(d.ajustes || {}) };
       DB.ajustes.gh = { ...DEFAULTS.gh, ...(d.ajustes?.gh || {}) };
+      // Un nombre fuera de la lista (guardado antes, o traído en un
+      // respaldo) se limpia: hay que volver a elegir de los tres.
+      DB.ajustes.usuario = nombreAdmin(DB.ajustes.usuario);
     }
   } catch (e) { console.error("No se pudo leer el guardado", e); }
 }
@@ -139,17 +159,17 @@ function initLock() {
   });
 
   $("#reg-go").addEventListener("click", async () => {
-    const nombre = $("#reg-nombre").value.trim();
+    const nombre = nombreAdmin($("#reg-nombre").value);
     const clave = $("#reg-clave").value;
     const clave2 = $("#reg-clave2").value;
-    if (!nombre) return toast("Escribe tu nombre");
+    if (!nombre) return toast("Elige tu nombre de la lista");
     if (!SEG.fuerza(clave).ok) return toast("La contraseña está muy débil");
     if (clave !== clave2) return toast("Las contraseñas no coinciden");
 
     busy("Creando tu acceso…");
     try {
       const { seguridad, boveda } = await SEG.crear(clave, {});
-      DB.ajustes.usuario = nombre.slice(0, 24);
+      DB.ajustes.usuario = nombre;
       DB.seguridad = seguridad;
       DB.boveda = boveda;
       guardar();
@@ -235,6 +255,9 @@ function entrarAlPanel() {
   reiniciarAutolock();
   if (!window.__arrancado) { window.__arrancado = true; arrancar(); }
   else { pintarForm(); renderCatalogo(); }
+  if (!DB.ajustes.usuario) {
+    setTimeout(() => toast("Elige tu nombre en Ajustes → Seguridad"), 900);
+  }
 }
 
 function yo() { return DB.ajustes.usuario || "alguien"; }
@@ -1067,7 +1090,13 @@ async function ghEscribir(path, contenidoB64, mensaje, sha) {
 }
 
 async function probarConexion() {
-  if (!ghOk()) { $("#s-test-msg").textContent = "Faltan datos (usuario, repo o token)."; return false; }
+  if (!ghOk()) {
+    const g = gh();
+    $("#s-test-msg").textContent = (g.owner && g.repo && !g.token)
+      ? "Falta el token en ESTE aparato. El token no viaja de un celular a otro: cada quien pega el suyo aquí, o se prende la verificación de 2 pasos y entonces lo entrega el servicio."
+      : "Faltan datos (usuario, repo o token).";
+    return false;
+  }
   busy("Probando conexión…");
   try {
     const j = await ghLeer("products.json");
@@ -1768,7 +1797,7 @@ function pintarAjustes() {
   $("#s-repo").value = gh().repo || "";
   $("#s-branch").value = gh().branch || "main";
   $("#s-token").value = SECRETOS.ghToken || "";
-  $("#s-usuario").value = DB.ajustes.usuario || "";
+  $("#s-usuario").value = nombreAdmin(DB.ajustes.usuario);
   $("#s-autolock").value = String(DB.ajustes.autolock ?? 5);
   pintarMaterialesAjustes();
   pintarEstadoSeguridad();
@@ -1785,12 +1814,15 @@ function pintarEstadoSeguridad() {
 
   const e = $("#s-estado-seg");
   if (e) e.innerHTML =
+    fila(true, "Lista cerrada de administradores",
+      `Sólo ${ADMINS.join(", ")}. No se puede dar de alta a nadie más desde el panel: hay que editar el código y volver a publicar el servicio.`) +
     fila(true, "Contraseña", "Cifra el token que publica en el sitio. Sin ella, es ilegible.") +
     fila(bio, bio ? "Face ID / huella activo" : "Face ID / huella apagado",
       bio ? "La llave sale del sensor de este celular."
           : "Sólo se activa si tu navegador lo permite de verdad.") +
-    fila(tok, tok ? "Token guardado y cifrado" : "Falta el token de GitHub",
-      tok ? "Vive en la bóveda de este celular." : "Sin él no se puede publicar.");
+    fila(tok, tok ? "Token guardado y cifrado" : "Falta el token en este aparato",
+      tok ? "Vive en la bóveda de este celular y no sale de aquí."
+          : "El token no se comparte entre aparatos: cada uno guarda el suyo. Pégalo abajo, o prende la verificación de 2 pasos para que lo entregue el servicio.");
 
   const d = $("#s-estado-2fa");
   if (d) d.innerHTML = dos
@@ -1819,6 +1851,11 @@ async function revisar2FA() {
     } else {
       const mio = j.usuarios2FA.some(u => u.toLowerCase() === String(DB.ajustes.usuario).toLowerCase());
       d.innerHTML = `<div class="fila"><span class="m on">✓</span><span>Activo para: ${j.usuarios2FA.map(esc).join(", ")}.<small>${mio ? "Tú incluido: la próxima vez te va a pedir el código." : `Falta el tuyo (${esc(DB.ajustes.usuario)}).`}</small></span></div>`;
+    }
+    // Códigos puestos en Cloudflare que el servicio NO acepta por no estar
+    // en la lista. Si aparece uno que nadie puso, hay que ir a revisar.
+    if (j.ignorados?.length) {
+      d.innerHTML += `<div class="fila"><span class="m off">⚠</span><span>Códigos ignorados: ${j.ignorados.map(esc).join(", ")}.<small>Están puestos en el servicio pero no están en la lista de administradores, así que no reciben el token. Si tú no los pusiste, bórralos en Cloudflare.</small></span></div>`;
     }
   } catch (e) {
     unbusy();
@@ -1881,6 +1918,7 @@ async function importarRespaldo(file) {
     DB = { ...DB, ...d };
     DB.ajustes = { ...DEFAULTS, ...(d.ajustes || {}) };
     DB.ajustes.gh = { ...DEFAULTS.gh, ...(d.ajustes?.gh || {}) };
+    DB.ajustes.usuario = nombreAdmin(DB.ajustes.usuario);
     guardar();
     toast("Respaldo restaurado — vuelve a entrar");
     setTimeout(() => location.reload(), 1200);
@@ -1990,8 +2028,11 @@ function arrancar() {
     unbusy(); renderCatalogo();
   });
   $("#s-usuario").addEventListener("change", () => {
-    const n = $("#s-usuario").value.trim();
-    if (n) { DB.ajustes.usuario = n.slice(0, 24); guardar(); $("#quien").textContent = "· " + DB.ajustes.usuario; toast("Nombre actualizado"); }
+    const n = nombreAdmin($("#s-usuario").value);
+    if (!n) { $("#s-usuario").value = nombreAdmin(DB.ajustes.usuario); return toast("Sólo " + ADMINS.join(", ")); }
+    DB.ajustes.usuario = n; guardar();
+    $("#quien").textContent = "· " + n;
+    toast("Nombre actualizado");
   });
   $("#s-export").addEventListener("click", exportarRespaldo);
   $("#s-import").addEventListener("change", e => importarRespaldo(e.target.files[0]));

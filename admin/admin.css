@@ -50,7 +50,8 @@ em { font-style: normal; color: var(--cyan); }
 .lock-box { width: 100%; max-width: 340px; text-align: center; }
 .lock-logo { width: 96px; margin-bottom: 12px; }
 .lock-box h1 { font-size: 26px; margin-bottom: 4px; }
-.lock-box input { margin: 10px 0 0; text-align: center; font-size: 18px; }
+.lock-box input, .lock-box select { margin: 10px 0 0; text-align: center; font-size: 18px; }
+.lock-box select { text-align-last: center; background-position: right 16px center, right 11px center; }
 .lock-box input.codigo { font-size: 30px; letter-spacing: 10px; font-family: var(--font-display); }
 .lock-hint { font-size: 13px; margin-top: 14px; line-height: 1.45; }
 .lock-paso > .btn { margin-top: 12px; }

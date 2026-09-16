@@ -8,7 +8,7 @@
  *   MP_ACCESS_TOKEN    — Access token de producción de Mercado Pago
  *   MP_WEBHOOK_SECRET  — Clave secreta del webhook (opcional pero recomendada)
  *   GH_TOKEN           — Token de GitHub que publica en el sitio (2 pasos)
- *   TOTP_<NOMBRE>      — Semilla base32 de cada persona (TOTP_EMILIO, TOTP_KARLA…)
+ *   TOTP_<NOMBRE>      — Semilla base32 de cada persona (TOTP_ALE, TOTP_EMILIOPAPA…)
  *
  * Variables (en wrangler.toml):
  *   ORIGENES           — dominios permitidos, separados por coma
@@ -23,6 +23,9 @@
  *   GET  /estado?folio=1001     ¿ya pagó?
  *   POST /webhook               avisos de Mercado Pago
  *   POST /panel/token           entrega el token de GitHub contra un código TOTP
+ *
+ * Sólo las personas de la constante ADMINS (más abajo) pueden recibir el token.
+ * Esa lista se cambia editando este archivo y volviendo a publicar el Worker.
  */
 
 const MP = "https://api.mercadopago.com";
@@ -305,12 +308,47 @@ async function totpValido(semilla, codigo, ventana = 1) {
   return false;
 }
 
-const claveUsuario = (u) => "TOTP_" + String(u || "").toUpperCase()
+/* ==========================================================
+   LISTA CERRADA DE ADMINISTRADORES
+   ----------------------------------------------------------
+   Éstas son las únicas personas que pueden recibir el token de
+   GitHub, o sea, las únicas que pueden publicar en el sitio.
+
+   La lista vive AQUÍ, en el código, a propósito: no en los
+   secretos de Cloudflare, no en el KV, no en el navegador. Para
+   dar de alta a alguien más hay que editar este archivo, subirlo
+   a GitHub y volver a publicar el Worker — queda firmado en el
+   historial y no se puede hacer desde el panel ni desde el
+   celular. Aunque alguien entrara a la cuenta de Cloudflare y
+   pusiera un TOTP_ nuevo, el servicio lo ignora.
+   ========================================================== */
+const ADMINS = ["Ale", "Emilio papá", "Milo"];
+
+/* El nombre se compara sin acentos, sin espacios y sin mayúsculas, así que
+   "Emilio papá" y "emilio papa" son la misma persona. Ese mismo texto es el
+   que da el nombre del secreto: "Emilio papá" → TOTP_EMILIOPAPA. */
+const normalizarNombre = (u) => String(u || "").toUpperCase()
   .normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^A-Z0-9]/g, "");
 
-function usuariosCon2FA(env) {
-  return Object.keys(env).filter(k => /^TOTP_[A-Z0-9]+$/.test(k) && env[k])
-    .map(k => k.slice(5).charAt(0) + k.slice(6).toLowerCase());
+const CLAVES_ADMIN = ADMINS.map(normalizarNombre);
+
+const claveUsuario = (u) => "TOTP_" + normalizarNombre(u);
+const esAdmin = (u) => CLAVES_ADMIN.includes(normalizarNombre(u));
+const bonito = (clave) => ADMINS[CLAVES_ADMIN.indexOf(clave)] ||
+  (clave.charAt(0) + clave.slice(1).toLowerCase());
+
+/* Qué códigos hay puestos y cuáles se están ignorando por no estar
+   en la lista. Los ignorados se reportan para que se noten: si un
+   día aparece uno que nadie puso, es una alerta, no un detalle. */
+function estado2FA(env) {
+  const puestos = Object.keys(env)
+    .filter(k => /^TOTP_[A-Z0-9]+$/.test(k) && env[k])
+    .map(k => k.slice(5));
+  return {
+    administradores: ADMINS,
+    usuarios2FA: puestos.filter(n => CLAVES_ADMIN.includes(n)).map(bonito),
+    ignorados: puestos.filter(n => !CLAVES_ADMIN.includes(n)).map(bonito)
+  };
 }
 
 /* ---------- Freno a los intentos por fuerza bruta ---------- */
@@ -338,6 +376,13 @@ async function tokenDelPanel(request, env) {
 
   if (!env.GH_TOKEN) return json({ error: "El servicio todavía no tiene el token de GitHub." }, 503);
   if (!usuario || codigo.length !== 6) return json({ error: "Faltan datos." }, 400);
+
+  // Primero la lista cerrada: quien no está, no pasa, tenga o no
+  // un código configurado. Ésta es la puerta que no se puede abrir
+  // desde el panel ni agregando secretos en Cloudflare.
+  if (!esAdmin(usuario)) {
+    return json({ error: "Esta persona no está en la lista de administradores del panel." }, 403);
+  }
 
   const semilla = env[quien];
   if (!semilla) return json({ error: "Este usuario no tiene verificación de 2 pasos configurada." }, 403);
@@ -371,7 +416,7 @@ export default {
           webhookFirmado: !!env.MP_WEBHOOK_SECRET,
           historial: !!env.PAGOS,
           panel: !!env.GH_TOKEN,
-          usuarios2FA: usuariosCon2FA(env)
+          ...estado2FA(env)
         }, 200, cabeceras);
       }
 
