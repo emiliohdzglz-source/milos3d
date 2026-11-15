@@ -48,6 +48,16 @@ const DEFAULTS = {
     { nombre: "PETG", precioKg: 540 },
     { nombre: "TPU flexible", precioKg: 780 }
   ],
+  /* La flota. Cada máquina cuesta distinto por hora: lo que pagaste por
+     ella entre su vida útil, más luz y mantenimiento. Los gramos y el
+     tiempo salen del rebanador de ESA máquina, así que la purga del AMS
+     ya viene contada ahí; lo que cambia aquí es nada más el costo/hora. */
+  maquinas: [
+    { nombre: "X1C", tarifaHora: 20 },
+    { nombre: "P2S", tarifaHora: 20 },
+    { nombre: "A1", tarifaHora: 20 },
+    { nombre: "Snapmaker U1", tarifaHora: 20 }
+  ],
   gh: { owner: "emiliohdzglz-source", repo: "milos3d", branch: "main", token: "" },
   whatsapp: "524427831563"
 };
@@ -68,7 +78,7 @@ let temporizadorLock = null;
 function nuevoForm() {
   return {
     id: null, nombre: "", descripcion: "", link: "", imagen: "", imagenPath: "",
-    gramos: 0, piezas: 1, horas: 0, minutos: 0, mano: 0, materialIdx: 0,
+    gramos: 0, piezas: 1, horas: 0, minutos: 0, mano: 0, materialIdx: 0, maquinaIdx: 0,
     colores: [], etiquetas: "", badge: "", precioManual: null,
     creadoPor: "", costosPor: "", publicadoPor: ""
   };
@@ -118,6 +128,13 @@ function cargar() {
       // Un nombre fuera de la lista (guardado antes, o traído en un
       // respaldo) se limpia: hay que volver a elegir de los tres.
       DB.ajustes.usuario = nombreAdmin(DB.ajustes.usuario);
+      // Antes había una sola tarifa por hora para todo. Si este celular
+      // viene de esa época, la flota arranca con ese mismo número en las
+      // cuatro: así nada cambia de precio hasta que se ajuste a mano.
+      if (!Array.isArray(d.ajustes?.maquinas) || !d.ajustes.maquinas.length) {
+        DB.ajustes.maquinas = DEFAULTS.maquinas.map(m =>
+          ({ ...m, tarifaHora: num(d.ajustes?.tarifaHora) || m.tarifaHora }));
+      }
     }
   } catch (e) { console.error("No se pudo leer el guardado", e); }
 }
@@ -623,9 +640,13 @@ function calcular(f = form, a = DB.ajustes) {
   const precioKg = num(mat.precioKg) || num(a.precioKg);
   const piezas = Math.max(1, num(f.piezas) || 1);
 
+  const flota = a.maquinas?.length ? a.maquinas : DEFAULTS.maquinas;
+  const maq = flota[f.maquinaIdx] || flota[0];
+  const tarifaHora = num(maq?.tarifaHora) || num(a.tarifaHora);
+
   const horasTotales = num(f.horas) + num(f.minutos) / 60;
   const material = (num(f.gramos) / 1000) * precioKg;
-  const maquina = horasTotales * num(a.tarifaHora);
+  const maquina = horasTotales * tarifaHora;
   const mano = (num(f.mano) / 60) * num(a.tarifaMano);
 
   const directo = material + maquina + mano;
@@ -640,14 +661,14 @@ function calcular(f = form, a = DB.ajustes) {
   const utilidad = precio - costoPieza;
   const margenReal = precio > 0 ? (utilidad / precio) * 100 : 0;
 
-  return { material, maquina, mano, merma, costoTotal, costoPieza, precioSugerido, precio, utilidad, margenReal, piezas, precioKg, horasTotales };
+  return { material, maquina, mano, merma, costoTotal, costoPieza, precioSugerido, precio, utilidad, margenReal, piezas, precioKg, horasTotales, maquina_nombre: maq?.nombre || "", tarifaHora };
 }
 
 function recalcular() {
   const c = calcular();
   $("#calc-breakdown").innerHTML = `
     <div class="bd-row"><span>Filamento (${num(form.gramos)} g × ${money(c.precioKg)}/kg)</span><b>${money(c.material)}</b></div>
-    <div class="bd-row"><span>Impresora (${c.horasTotales.toFixed(2)} h)</span><b>${money(c.maquina)}</b></div>
+    <div class="bd-row"><span>${esc(c.maquina_nombre)} (${c.horasTotales.toFixed(2)} h × ${money(c.tarifaHora)}/h)</span><b>${money(c.maquina)}</b></div>
     <div class="bd-row"><span>Armado (${num(form.mano)} min)</span><b>${money(c.mano)}</b></div>
     <div class="bd-row"><span>Merma ${num(DB.ajustes.merma)}%</span><b>${money(c.merma)}</b></div>
     <div class="bd-row total"><span>Costo${c.piezas > 1 ? ` de ${c.piezas} piezas` : ""}</span><b>${money(c.costoTotal)}</b></div>
@@ -668,6 +689,15 @@ function pintarMateriales() {
   $("#f-material").innerHTML = DB.ajustes.materiales
     .map((m, i) => `<option value="${i}">${esc(m.nombre)} — ${money(m.precioKg)}/kg</option>`).join("");
   $("#f-material").value = String(Math.min(form.materialIdx, DB.ajustes.materiales.length - 1));
+}
+
+function flota() { return DB.ajustes.maquinas?.length ? DB.ajustes.maquinas : DEFAULTS.maquinas; }
+
+function pintarMaquinas() {
+  const f = flota();
+  $("#f-maquina").innerHTML = f
+    .map((m, i) => `<option value="${i}">${esc(m.nombre)} — ${money(m.tarifaHora)}/h</option>`).join("");
+  $("#f-maquina").value = String(Math.min(form.maquinaIdx || 0, f.length - 1));
 }
 
 function pintarSwatches() {
@@ -693,6 +723,7 @@ function leerForm() {
   form.minutos = num($("#f-min").value);
   form.mano = num($("#f-mano").value);
   form.materialIdx = num($("#f-material").value);
+  form.maquinaIdx = num($("#f-maquina").value);
   form.etiquetas = $("#f-tags").value;
   form.badge = $("#f-badge").value;
   const pm = $("#f-precio").value.trim();
@@ -1800,6 +1831,7 @@ function pintarAjustes() {
   $("#s-usuario").value = nombreAdmin(DB.ajustes.usuario);
   $("#s-autolock").value = String(DB.ajustes.autolock ?? 5);
   pintarMaterialesAjustes();
+  pintarFlotaAjustes();
   pintarEstadoSeguridad();
 }
 
@@ -1861,6 +1893,32 @@ async function revisar2FA() {
     unbusy();
     d.innerHTML = `<div class="fila"><span class="m off">○</span><span>El servicio no respondió.<small>Revisa la dirección en Cobros con tarjeta.</small></span></div>`;
   }
+}
+
+function pintarFlotaAjustes() {
+  const cont = $("#s-maquinas");
+  if (!cont) return;
+  cont.innerHTML = flota().map((m, i) => `
+    <div class="mini">
+      <span class="grow">${esc(m.nombre)}</span>
+      <input type="number" class="mini-num" data-maq-tarifa="${i}" value="${num(m.tarifaHora)}"
+             inputmode="decimal" min="0" aria-label="Costo por hora de ${esc(m.nombre)}">
+      <span class="dim">/h</span>
+      <button class="icon-btn" data-maq-del="${i}">✕</button>
+    </div>`).join("") || `<p class="hint">Agrega al menos una máquina.</p>`;
+
+  $$("#s-maquinas [data-maq-tarifa]").forEach(el => el.addEventListener("change", () => {
+    const i = +el.dataset.maqTarifa;
+    DB.ajustes.maquinas[i].tarifaHora = num(el.value);
+    guardar(); pintarMaquinas(); recalcular();
+    toast(`${DB.ajustes.maquinas[i].nombre}: ${money(num(el.value))}/h`);
+  }));
+  $$("#s-maquinas [data-maq-del]").forEach(b => b.addEventListener("click", () => {
+    if (flota().length <= 1) return toast("Tiene que quedar al menos una máquina");
+    DB.ajustes.maquinas.splice(+b.dataset.maqDel, 1);
+    if (form.maquinaIdx >= DB.ajustes.maquinas.length) form.maquinaIdx = 0;
+    guardar(); pintarFlotaAjustes(); pintarMaquinas(); recalcular();
+  }));
 }
 
 function pintarMaterialesAjustes() {
@@ -1966,6 +2024,7 @@ function arrancar() {
   ["f-gramos", "f-piezas", "f-horas", "f-min", "f-mano", "f-material", "f-precio"].forEach(id =>
     $("#" + id).addEventListener("input", () => { leerForm(); recalcular(); }));
   $("#f-material").addEventListener("change", () => { leerForm(); recalcular(); });
+  $("#f-maquina").addEventListener("change", () => { leerForm(); recalcular(); });
 
   // Guardar / publicar
   $("#btn-desc").addEventListener("click", generarDescripcion);
@@ -1994,6 +2053,14 @@ function arrancar() {
   $$("#view-ajustes input, #view-ajustes textarea").forEach(el => {
     if (el.type === "file") return;
     el.addEventListener("change", leerAjustes);
+  });
+  $("#s-maq-add").addEventListener("click", () => {
+    const nom = $("#s-maq-nombre").value.trim(), t = num($("#s-maq-tarifa").value);
+    if (!nom || !t) return toast("Pon nombre y costo por hora");
+    if (!Array.isArray(DB.ajustes.maquinas)) DB.ajustes.maquinas = [];
+    DB.ajustes.maquinas.push({ nombre: nom.slice(0, 24), tarifaHora: t });
+    $("#s-maq-nombre").value = ""; $("#s-maq-tarifa").value = "";
+    guardar(); pintarFlotaAjustes(); pintarMaquinas();
   });
   $("#s-mat-add").addEventListener("click", () => {
     const n = $("#s-mat-nombre").value.trim(), p = num($("#s-mat-precio").value);
