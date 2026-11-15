@@ -142,6 +142,9 @@
           <label>Material
             <select id="f-material"></select>
           </label>
+          <label>Máquina
+            <select id="f-maquina"></select>
+          </label>
         </div>
       </div>
 
@@ -256,6 +259,25 @@
           </label>
         </div>
         <p class="hint">La impresora $/hora cubre luz, boquilla y desgaste. Un valor típico casero es $15–30 MXN/h.</p>
+      </div>
+
+      <div class="card">
+        <h3 class="card-title">Mis máquinas</h3>
+        <p class="hint">Cada una cuesta distinto por hora. El precio de un producto usa la de la máquina que lo hace.</p>
+        <div id="s-maquinas" class="list-mini"></div>
+        <div class="row">
+          <input type="text" id="s-maq-nombre" placeholder="Nombre (H2D)">
+          <input type="number" id="s-maq-tarifa" placeholder="$/hora" inputmode="decimal">
+          <button class="btn btn-ghost" id="s-maq-add">+</button>
+        </div>
+        <details class="det">
+          <summary>¿Cómo saco el costo por hora?</summary>
+          <p class="hint">Lo que te costó la máquina ÷ las horas que esperas que dure,
+          más la luz y el mantenimiento por hora. Ejemplo: $25,000 entre 6,000 horas de
+          vida son $4.20; súmale ~$2 de luz y ~$3 de boquillas, bandas y placas,
+          y te da ≈ $9/hora. Las que imprimen más rápido salen más baratas por pieza
+          aunque cuesten más por hora.</p>
+        </details>
       </div>
 
       <div class="card">

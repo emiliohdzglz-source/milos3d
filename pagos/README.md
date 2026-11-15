@@ -17,7 +17,35 @@ sobra con muchísimo.
 | `POST /webhook` | Mercado Pago avisa aquí cuando alguien paga |
 | `POST /panel/token` | Entrega el token de GitHub, sólo con un código válido de 2 pasos |
 
-## Instalarlo (una sola vez, ~10 minutos)
+## Ya está publicado
+
+El servicio vive en:
+
+```
+https://milos3d-pagos.emilio-hdz-glz.workers.dev
+```
+
+Ésa es la dirección que va en el panel → **Ajustes → Cobros con tarjeta**.
+Para ver cómo está: abre esa dirección con `/salud` al final.
+
+Las claves secretas se ponen **sin terminal**, desde el navegador:
+dash.cloudflare.com → **Compute (Workers)** → `milos3d-pagos` → **Settings**
+→ **Variables and Secrets** → *Add* → tipo **Secret**:
+
+| Nombre | Qué es | Sin ella |
+|---|---|---|
+| `MP_ACCESS_TOKEN` | Access token de producción de Mercado Pago | No se puede cobrar con tarjeta |
+| `MP_WEBHOOK_SECRET` | Clave del webhook de Mercado Pago | El cobro funciona, pero el botón "¿ya pagó?" no se entera solo |
+| `GH_TOKEN` | Token de GitHub que publica en el sitio | No hay verificación de 2 pasos |
+| `TOTP_ALE`, `TOTP_EMILIOPAPA`, `TOTP_MILO` | Semilla del autenticador de cada quien | Esa persona no puede recibir el token |
+
+Después de agregar o cambiar una clave, Cloudflare vuelve a publicar el
+servicio solo. No hace falta tocar nada más.
+
+El resto de esta página es para reinstalarlo desde cero desde una
+computadora, o para entender cómo funciona por dentro.
+
+## Instalarlo desde cero (una sola vez, ~10 minutos)
 
 Necesitas una cuenta gratis en **cloudflare.com**.
 

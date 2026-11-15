@@ -13,10 +13,10 @@ compatibility_date = "2025-01-01"
 ORIGENES = "https://milos3d.com,https://www.milos3d.com"
 SITIO = "https://www.milos3d.com"
 
-# Historial de cobros (opcional pero recomendado: permite el botón
-# "¿ya pagó?" en el panel). Crea el espacio con:
-#   npx wrangler kv namespace create PAGOS
-# y pega abajo el id que te devuelva, quitando el # de las tres líneas.
-# [[kv_namespaces]]
-# binding = "PAGOS"
-# id = "PEGA_AQUI_EL_ID"
+# Historial de cobros: permite el botón "¿ya pagó?" en el panel.
+# El espacio ya existe en la cuenta y el Worker publicado ya lo tiene
+# conectado. Esta sección está aquí para que un `wrangler deploy` futuro
+# no lo deje fuera: sin ella el botón dejaría de funcionar en silencio.
+[[kv_namespaces]]
+binding = "PAGOS"
+id = "2cb7d0a82104490dbc44068dc8978458"
