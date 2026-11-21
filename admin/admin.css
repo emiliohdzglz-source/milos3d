@@ -199,6 +199,23 @@ textarea { resize: vertical; line-height: 1.45; }
 .badge.aprobada { background: rgba(61,220,151,.15); color: var(--ok); }
 .badge.pagada { background: linear-gradient(135deg, var(--cyan), var(--blue)); color: #041020; }
 .badge.cancelada { background: rgba(255,95,109,.15); color: var(--bad); }
+/* Estados del pedido: recibido tibio, en proceso en marcha, listo en verde. */
+.badge.recibido { background: rgba(255,176,32,.15); color: var(--warn); }
+.badge.proceso { background: rgba(76,201,255,.15); color: var(--cyan); }
+.badge.listo { background: rgba(61,220,151,.15); color: var(--ok); }
+.badge.entregado { background: rgba(255,255,255,.08); color: var(--dim); }
+.badge.cancelado { background: rgba(255,95,109,.15); color: var(--bad); }
+
+/* Lo que ya se pasó de fecha tiene que saltar a la vista. */
+.alerta { color: var(--bad); font-weight: 700; }
+
+/* La fecha propuesta, dentro de la ficha del pedido. */
+.prop {
+  background: rgba(76,201,255,.06); border: 1px solid var(--border);
+  border-radius: 12px; padding: 13px; margin: 14px 0;
+}
+.prop-head { font-size: 13px; color: var(--dim); text-transform: uppercase; letter-spacing: .5px; }
+.prop-fecha { font-family: var(--font-display); font-size: 21px; margin: 2px 0 6px; text-transform: capitalize; }
 .empty { text-align: center; color: var(--dim); padding: 40px 20px; font-size: 15px; }
 
 .list-mini { display: grid; gap: 8px; margin-bottom: 12px; }
