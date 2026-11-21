@@ -285,6 +285,52 @@ También ahí van los **materiales**, cada uno con su precio por kilo.
 
 ---
 
+## 🛠️ Pedidos
+
+La pestaña **Pedidos** es la pantalla del día a día: lo que pasa *después* de
+que el cliente dijo que sí.
+
+### Levantar un pedido
+
+**+ Nuevo pedido**, y llenas lo que sepas: cliente, WhatsApp, qué pidió, total
+y **horas de impresión**. Las horas son importantes: de ahí sale la fecha.
+
+Si el pedido viene de una cotización ya aprobada, no lo captures de nuevo:
+en la cotización, **⋯ → 🛠️ Convertir en pedido**. Se lleva solo el cliente, el
+teléfono, los conceptos y el total. Una cotización no puede generar dos pedidos.
+
+### La fecha de entrega
+
+El panel **propone** una fecha y te enseña de dónde sale:
+
+> *6 h ya en cola + 5 h de éste = 11 h ÷ 10 h al día + 1 de colchón → 3 días.*
+
+No es adivinanza ni es magia: es la cola real de lo que ya prometiste. Puedes
+**aceptarla** (botón *Usar la propuesta*) o **escribir otra** — tú das la cara,
+tú decides. Lo que prometes se queda fijo: aunque después entren más pedidos y
+la propuesta cambie, **tu promesa no se mueve sola**.
+
+Los dos números del cálculo se ajustan en **Ajustes → Horas de impresión al día**
+y **Días de colchón**. Diez horas al día es realista: hay que montar, despegar
+y dormir.
+
+### Cómo camina
+
+**Recibido → En proceso → Listo → Entregado.** Un botón por paso. Cada cambio
+queda firmado con quién y cuándo, en el historial de la ficha.
+
+Al marcarlo **Listo** se abre WhatsApp solo, con el mensaje ya escrito para ese
+cliente. Sólo le das enviar.
+
+### El tablero de arriba
+
+- **Abiertos** — los que no has entregado.
+- **En cola** — las horas de impresión comprometidas. Es tu carga real.
+- **Atrasados** — en rojo. Si ahí hay un número, hay alguien esperando de más.
+
+> La lista también avisa por renglón: *entrega HOY*, *entrega mañana*,
+> *atrasado 2 días*.
+
 ## 🧯 Qué protege esto y qué no
 
 Para que no te sorprenda nada:

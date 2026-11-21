@@ -48,6 +48,11 @@ const DEFAULTS = {
     { nombre: "PETG", precioKg: 540 },
     { nombre: "TPU flexible", precioKg: 780 }
   ],
+  /* Para proponer la fecha de entrega: cuántas horas de impresión caben
+     en un día de verdad (no 24: hay que montar, despegar y dormir) y
+     cuántos días de colchón se dejan antes de prometer. */
+  horasDia: 10,
+  colchonDias: 1,
   /* La flota. Cada máquina cuesta distinto por hora: lo que pagaste por
      ella entre su vida útil, más luz y mantenimiento. Los gramos y el
      tiempo salen del rebanador de ESA máquina, así que la purga del AMS
@@ -63,12 +68,13 @@ const DEFAULTS = {
 };
 
 /* ---------- Estado ---------- */
-let DB = { ajustes: { ...DEFAULTS }, productos: [], cotizaciones: [], folio: 1000 };
+let DB = { ajustes: { ...DEFAULTS }, productos: [], cotizaciones: [], pedidos: [], folio: 1000, folioPed: 0 };
 let form = nuevoForm();
 let editandoId = null;
 let vistaActual = "nuevo";
 let filtroCat = "todos";
 let filtroCot = "todas";
+let filtroPed = "abiertos";
 
 /* Sólo en memoria: se pierden al bloquear o cerrar. Nunca tocan el disco. */
 let LLAVE = null;        // llave que abre la bóveda
@@ -128,6 +134,9 @@ function cargar() {
       // Un nombre fuera de la lista (guardado antes, o traído en un
       // respaldo) se limpia: hay que volver a elegir de los tres.
       DB.ajustes.usuario = nombreAdmin(DB.ajustes.usuario);
+      // Los pedidos son nuevos: un celular que venga de antes no los trae.
+      if (!Array.isArray(DB.pedidos)) DB.pedidos = [];
+      if (typeof DB.folioPed !== "number") DB.folioPed = 0;
       // Antes había una sola tarifa por hora para todo. Si este celular
       // viene de esa época, la flota arranca con ese mismo número en las
       // cuatro: así nada cambia de precio hasta que se ajuste a mano.
@@ -348,6 +357,7 @@ function irA(v) {
   window.scrollTo(0, 0);
   if (v === "catalogo") renderCatalogo();
   if (v === "cotiza") renderCotizaciones();
+  if (v === "pedidos") renderPedidos();
   if (v === "ajustes") pintarAjustes();
 }
 
@@ -1499,6 +1509,281 @@ function borrarProducto(id) {
 }
 
 /* ==========================================================
+   PEDIDOS
+   ----------------------------------------------------------
+   Lo que pasa DESPUÉS de que el cliente dijo que sí. Un pedido
+   nace vacío o desde una cotización aprobada, y camina:
+     recibido → en proceso → listo → entregado
+   La fecha de entrega no se adivina: sale de las horas que ya
+   están comprometidas en la cola más las de este pedido. Se
+   propone, y quien atiende la acepta o la cambia — el que da
+   la cara es quien decide.
+   ========================================================== */
+const ESTADOS_PED = ["recibido", "proceso", "listo", "entregado"];
+const NOMBRE_ESTADO = {
+  recibido: "Recibido", proceso: "En proceso",
+  listo: "Listo", entregado: "Entregado", cancelado: "Cancelado"
+};
+
+function pedidoPorId(id) { return DB.pedidos.find(x => x.id === id); }
+const abierto = (p) => p.estado === "recibido" || p.estado === "proceso";
+
+function nuevoPedido(datos = {}) {
+  DB.folioPed = (DB.folioPed || 0) + 1;
+  const p = {
+    id: "p" + Date.now(),
+    folio: "P" + String(DB.folioPed).padStart(3, "0"),
+    cliente: "", tel: "", descripcion: "",
+    total: 0, horas: 0, maquinaIdx: 0,
+    estado: "recibido", compromiso: "", compromisoFijo: false, cotizacionId: null,
+    creado: new Date().toISOString(),
+    historial: [{ estado: "recibido", cuando: new Date().toISOString(), quien: yo() }],
+    ...datos
+  };
+  DB.pedidos.unshift(p);
+  guardar();
+  return p;
+}
+
+/* ---------- La fecha propuesta ----------
+   Suma las horas de lo que ya está en la cola (sin contar este
+   pedido), le agrega las de éste, lo divide entre las horas de
+   impresión que caben en un día y le suma el colchón. Devuelve
+   también las piezas del cálculo, para poder enseñarlas: una
+   fecha que no se puede explicar no se puede defender. */
+function proponerEntrega(p) {
+  const a = DB.ajustes;
+  const horasDia = Math.max(1, num(a.horasDia) || 10);
+  const colchon = Math.max(0, num(a.colchonDias) || 0);
+  const cola = DB.pedidos
+    .filter(x => x.id !== p.id && abierto(x))
+    .reduce((s, x) => s + num(x.horas), 0);
+  const horas = cola + num(p.horas);
+  const dias = Math.ceil(horas / horasDia) + colchon;
+  const fecha = new Date();
+  fecha.setDate(fecha.getDate() + Math.max(1, dias));
+  return { fecha: fecha.toISOString().slice(0, 10), dias, horas, cola, horasDia, colchon };
+}
+
+const DIAS = ["domingo", "lunes", "martes", "miércoles", "jueves", "viernes", "sábado"];
+const MESES = ["enero", "febrero", "marzo", "abril", "mayo", "junio",
+  "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"];
+
+function fechaBonita(iso) {
+  if (!iso) return "";
+  const [a, m, d] = iso.split("-").map(Number);
+  const f = new Date(a, m - 1, d);
+  return `${DIAS[f.getDay()]} ${d} de ${MESES[m - 1]}`;
+}
+
+/* Días que faltan para la fecha prometida. Negativo = ya se pasó. */
+function diasPara(iso) {
+  if (!iso) return null;
+  const [a, m, d] = iso.split("-").map(Number);
+  const hoy = new Date(); hoy.setHours(0, 0, 0, 0);
+  return Math.round((new Date(a, m - 1, d) - hoy) / 86400000);
+}
+
+/* ---------- La lista ---------- */
+function renderPedidos() {
+  const lista = DB.pedidos.filter(p =>
+    filtroPed === "todos" ? true :
+    filtroPed === "abiertos" ? abierto(p) : p.estado === filtroPed);
+
+  const abiertos = DB.pedidos.filter(abierto);
+  const horasCola = abiertos.reduce((s, p) => s + num(p.horas), 0);
+  const tarde = abiertos.filter(p => p.compromiso && diasPara(p.compromiso) < 0).length;
+  $("#ped-totales").innerHTML = `
+    <div class="tot"><span>Abiertos</span><strong>${abiertos.length}</strong></div>
+    <div class="tot"><span>En cola</span><strong>${horasCola.toFixed(1)} h</strong></div>
+    <div class="tot"><span>Atrasados</span><strong class="${tarde ? "alerta" : ""}">${tarde}</strong></div>`;
+
+  const cont = $("#ped-list");
+  if (!lista.length) {
+    cont.innerHTML = `<div class="empty">Sin pedidos aquí.</div>`;
+    return;
+  }
+  cont.innerHTML = lista.map(p => {
+    const d = diasPara(p.compromiso);
+    const cuando = !p.compromiso ? `<span class="muted">sin fecha</span>`
+      : d < 0 ? `<span class="alerta">atrasado ${-d} día${-d === 1 ? "" : "s"}</span>`
+      : d === 0 ? `<span class="alerta">entrega HOY</span>`
+      : d === 1 ? `entrega mañana`
+      : `entrega en ${d} días`;
+    return `
+    <div class="item">
+      <div class="item-img">${p.estado === "entregado" ? "✅" : p.estado === "listo" ? "📦" : "🛠️"}</div>
+      <div class="item-body">
+        <div class="item-name">${esc(p.cliente || "Sin nombre")} <span class="muted small">${p.folio}</span></div>
+        <div class="item-meta"><span class="badge ${p.estado}">${NOMBRE_ESTADO[p.estado]}</span> ${esc(p.descripcion || "—")}</div>
+        <div class="item-meta">
+          ${p.total ? `<span class="item-price">${money(p.total)}</span> · ` : ""}${cuando}
+        </div>
+      </div>
+      <button class="icon-btn" data-ped="${p.id}">⋯</button>
+    </div>`;
+  }).join("");
+  cont.querySelectorAll("[data-ped]").forEach(b =>
+    b.addEventListener("click", () => menuPedido(b.dataset.ped)));
+}
+
+/* ---------- La ficha ---------- */
+function menuPedido(id) {
+  const p = pedidoPorId(id);
+  if (!p) return;
+  const sug = proponerEntrega(p);
+  const f = flota();
+  const siguiente = ESTADOS_PED[ESTADOS_PED.indexOf(p.estado) + 1];
+
+  mostrarHoja(`${p.folio} · ${p.cliente || "Sin nombre"}`, `
+    <label>Cliente<input type="text" id="pd-cliente" value="${esc(p.cliente)}"></label>
+    <label>WhatsApp<input type="tel" id="pd-tel" inputmode="numeric" value="${esc(p.tel)}" placeholder="442 123 4567"></label>
+    <label>Qué pidió<textarea id="pd-desc" rows="2" placeholder="Clickers nombre PAULA, rosa y lila">${esc(p.descripcion)}</textarea></label>
+    <div class="grid2">
+      <label>Total $<input type="number" id="pd-total" inputmode="decimal" min="0" value="${num(p.total) || ""}"></label>
+      <label>Horas de impresión<input type="number" id="pd-horas" inputmode="decimal" min="0" step="0.5" value="${num(p.horas) || ""}"></label>
+    </div>
+    <label>Máquina
+      <select id="pd-maquina">${f.map((m, i) =>
+        `<option value="${i}"${i === (p.maquinaIdx || 0) ? " selected" : ""}>${esc(m.nombre)}</option>`).join("")}</select>
+    </label>
+
+    <div class="prop">
+      <div class="prop-head">Entrega propuesta</div>
+      <div class="prop-fecha">${fechaBonita(sug.fecha)}</div>
+      <p class="hint">${sug.cola > 0 ? `${sug.cola.toFixed(1)} h ya en cola + ` : ""}${num(p.horas).toFixed(1)} h de éste
+        = ${sug.horas.toFixed(1)} h ÷ ${sug.horasDia} h al día${sug.colchon ? ` + ${sug.colchon} de colchón` : ""}
+        → ${sug.dias} día${sug.dias === 1 ? "" : "s"}.</p>
+      <label>Fecha que prometes
+        <input type="date" id="pd-compromiso" value="${p.compromisoFijo && p.compromiso ? p.compromiso : sug.fecha}">
+      </label>
+      <button class="btn btn-ghost btn-block" id="pd-usar-sug">📅 Usar la propuesta (${fechaBonita(sug.fecha)})</button>
+    </div>
+
+    <button class="btn btn-primary btn-block" id="pd-guardar">💾 Guardar pedido</button>
+    ${siguiente ? `<button class="btn btn-ghost btn-block" id="pd-avanzar">➡️ Pasar a «${NOMBRE_ESTADO[siguiente]}»</button>` : ""}
+    ${p.estado === "listo" || p.estado === "entregado"
+      ? `<button class="btn btn-ghost btn-block" id="pd-avisar">💬 Avisar al cliente por WhatsApp</button>` : ""}
+    <button class="btn btn-ghost btn-block" id="pd-cancelar">🚫 Cancelar pedido</button>
+    <button class="btn btn-danger btn-block" id="pd-borrar">🗑️ Borrar</button>
+    ${p.historial?.length > 1 ? `<details class="det"><summary>Historial</summary>${
+      p.historial.map(h => `<p class="hint">${NOMBRE_ESTADO[h.estado] || h.estado} · ${h.cuando.slice(0, 10)} · ${esc(h.quien)}</p>`).join("")
+    }</details>` : ""}
+  `, `<button class="btn btn-ghost" onclick="cerrarHoja()">Cerrar</button>`);
+
+  const leer = () => {
+    p.cliente = $("#pd-cliente").value.trim();
+    p.tel = $("#pd-tel").value.trim();
+    p.descripcion = $("#pd-desc").value.trim();
+    p.total = num($("#pd-total").value);
+    p.horas = num($("#pd-horas").value);
+    p.maquinaIdx = num($("#pd-maquina").value);
+    p.compromiso = $("#pd-compromiso").value;
+  };
+
+  // Las horas cambian la propuesta, así que se recalcula al vuelo.
+  $("#pd-horas").addEventListener("change", () => {
+    leer(); guardar();
+    cerrarHoja(); menuPedido(id);
+  });
+  // Elegir fecha a mano es comprometerse: de ahí en adelante manda la suya.
+  $("#pd-compromiso").addEventListener("change", () => { p.compromisoFijo = true; });
+  $("#pd-usar-sug").addEventListener("click", () => {
+    $("#pd-compromiso").value = proponerEntrega(p).fecha;
+    p.compromisoFijo = true;
+    toast("Fecha propuesta puesta");
+  });
+  $("#pd-guardar").addEventListener("click", () => {
+    leer();
+    p.compromisoFijo = true;          // guardar es aceptar la fecha que se ve
+    guardar(); cerrarHoja(); renderPedidos(); toast("Pedido guardado");
+  });
+  if (siguiente) $("#pd-avanzar").addEventListener("click", () => {
+    leer(); avanzarPedido(id);
+  });
+  const avisar = $("#pd-avisar");
+  if (avisar) avisar.addEventListener("click", () => { leer(); guardar(); cerrarHoja(); avisarPedido(id); });
+  $("#pd-cancelar").addEventListener("click", () => {
+    leer(); cambiarEstadoPedido(id, "cancelado"); cerrarHoja();
+  });
+  $("#pd-borrar").addEventListener("click", () => {
+    if (!confirm(`¿Borrar el pedido ${p.folio}? No se puede deshacer.`)) return;
+    DB.pedidos = DB.pedidos.filter(x => x.id !== id);
+    guardar(); cerrarHoja(); renderPedidos(); toast("Pedido borrado");
+  });
+}
+
+function cambiarEstadoPedido(id, estado) {
+  const p = pedidoPorId(id);
+  if (!p || p.estado === estado) return;
+  p.estado = estado;
+  (p.historial = p.historial || []).push({ estado, cuando: new Date().toISOString(), quien: yo() });
+  guardar();
+  renderPedidos();
+  toast(NOMBRE_ESTADO[estado]);
+}
+
+function avanzarPedido(id) {
+  const p = pedidoPorId(id);
+  const siguiente = ESTADOS_PED[ESTADOS_PED.indexOf(p.estado) + 1];
+  if (!siguiente) return;
+  cambiarEstadoPedido(id, siguiente);
+  cerrarHoja();
+  // Al quedar listo, lo natural es avisarle al cliente en ese momento.
+  if (siguiente === "listo" && p.tel) setTimeout(() => avisarPedido(id), 350);
+}
+
+/* ---------- El aviso al cliente ---------- */
+function textoPedido(p) {
+  const hola = `¡Hola${p.cliente ? " " + p.cliente : ""}! 🤖 `;
+  if (p.estado === "listo") {
+    let m = `${hola}Tu pedido ${p.folio} de MILO'S 3D **ya está listo**. 🎉\n\n`;
+    if (p.descripcion) m += `▸ ${p.descripcion}\n`;
+    if (num(p.total)) m += `\nTotal: ${money(p.total)}\n`;
+    m += `\n¿Cuándo pasas por él o te lo enviamos?`;
+    return m;
+  }
+  if (p.estado === "entregado") {
+    return `${hola}Gracias por tu compra en MILO'S 3D. 🙌\n\n` +
+      `Esperamos que disfrutes tu ${p.descripcion || "pedido"}. ` +
+      `Si nos mandas una foto, la presumimos (con tu permiso 😄).`;
+  }
+  let m = `${hola}Recibimos tu pedido ${p.folio} en MILO'S 3D.\n\n`;
+  if (p.descripcion) m += `▸ ${p.descripcion}\n`;
+  if (p.compromiso) m += `\n📅 Lo tenemos listo el ${fechaBonita(p.compromiso)}.\n`;
+  m += `\nTe avisamos en cuanto esté. ¡Gracias!`;
+  return m;
+}
+
+function avisarPedido(id) {
+  const p = pedidoPorId(id);
+  if (!p) return;
+  const tel = String(p.tel || "").replace(/\D/g, "");
+  const destino = tel ? (tel.length === 10 ? "52" + tel : tel) : "";
+  window.open(`https://wa.me/${destino}?text=${encodeURIComponent(textoPedido(p))}`, "_blank");
+}
+
+/* ---------- Nace desde una cotización aprobada ---------- */
+function pedidoDesdeCotizacion(idCot) {
+  const c = DB.cotizaciones.find(x => x.id === idCot);
+  if (!c) return;
+  if (DB.pedidos.some(p => p.cotizacionId === idCot)) {
+    irA("pedidos");
+    return toast("Esa cotización ya tiene pedido");
+  }
+  const p = nuevoPedido({
+    cliente: c.cliente, tel: c.tel,
+    descripcion: c.items.filter(i => i.nombre.trim())
+      .map(i => `${num(i.qty)}× ${i.nombre}`).join(", "),
+    total: totalesCot(c).total,
+    cotizacionId: idCot
+  });
+  irA("pedidos");
+  toast(`Pedido ${p.folio} creado`);
+  setTimeout(() => menuPedido(p.id), 300);
+}
+
+/* ==========================================================
    COTIZACIONES
    ========================================================== */
 function nuevaCotizacion(items = []) {
@@ -1575,6 +1860,7 @@ function menuCotizacion(id) {
     <button class="btn btn-primary btn-block" onclick="cerrarHoja();enviarCotizacion('${id}')">📤 Enviar por WhatsApp</button>
     <button class="btn btn-ghost btn-block" onclick="cerrarHoja();copiarLink('${id}')">🔗 Copiar liga de la cotización</button>
     <button class="btn btn-ghost btn-block" onclick="cerrarHoja();cambiarEstado('${id}','aprobada')">✅ Marcar aprobada</button>
+    <button class="btn btn-ghost btn-block" onclick="cerrarHoja();pedidoDesdeCotizacion('${id}')">🛠️ Convertir en pedido</button>
     <button class="btn btn-ghost btn-block" onclick="cerrarHoja();registrarPago('${id}')">💰 Registrar cobro</button>
     ${DB.ajustes.pagosURL ? `<button class="btn btn-ghost btn-block" onclick="cerrarHoja();revisarPago('${id}')">🔄 ¿Ya pagó con tarjeta?</button>` : ""}
     <button class="btn btn-ghost btn-block" onclick="cerrarHoja();cambiarEstado('${id}','cancelada')">🚫 Cancelar</button>
@@ -1817,6 +2103,7 @@ const AJ_CAMPOS = [
   ["s-precioKg", "precioKg", "num"], ["s-tarifaHora", "tarifaHora", "num"],
   ["s-tarifaMano", "tarifaMano", "num"], ["s-merma", "merma", "num"],
   ["s-margen", "margen", "num"], ["s-redondeo", "redondeo", "num"],
+  ["s-horasDia", "horasDia", "num"], ["s-colchonDias", "colchonDias", "num"],
   ["s-anticipo", "anticipo", "num"], ["s-linkPago", "linkPago", "str"],
   ["s-datosPago", "datosPago", "str"], ["s-proxy", "proxy", "str"],
   ["s-pagosURL", "pagosURL", "str"]
@@ -2043,6 +2330,17 @@ function arrancar() {
 
   // Cotizaciones
   $("#btn-nueva-cot").addEventListener("click", () => { const c = nuevaCotizacion(); renderCotizaciones(); editarCotizacion(c.id); });
+  $("#btn-nuevo-ped").addEventListener("click", () => {
+    const p = nuevoPedido();
+    renderPedidos();
+    menuPedido(p.id);
+  });
+  $$("#ped-filtro .seg-btn").forEach(b => b.addEventListener("click", () => {
+    filtroPed = b.dataset.f;
+    $$("#ped-filtro .seg-btn").forEach(x => x.classList.toggle("active", x === b));
+    renderPedidos();
+  }));
+
   $$("#cot-filtro .seg-btn").forEach(b => b.addEventListener("click", () => {
     filtroCot = b.dataset.f;
     $$("#cot-filtro .seg-btn").forEach(x => x.classList.toggle("active", x === b));

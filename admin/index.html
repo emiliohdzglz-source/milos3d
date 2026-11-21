@@ -232,6 +232,21 @@
       <div id="cot-list" class="list"></div>
     </section>
 
+    <!-- ---------- PEDIDOS ---------- -->
+    <section class="view" id="view-pedidos" hidden>
+      <h2 class="view-title">Pedidos</h2>
+      <button class="btn btn-primary btn-block" id="btn-nuevo-ped">+ Nuevo pedido</button>
+      <div class="seg" id="ped-filtro">
+        <button class="seg-btn active" data-f="abiertos">Abiertos</button>
+        <button class="seg-btn" data-f="recibido">Recibidos</button>
+        <button class="seg-btn" data-f="proceso">En proceso</button>
+        <button class="seg-btn" data-f="listo">Listos</button>
+        <button class="seg-btn" data-f="todos">Todos</button>
+      </div>
+      <div class="totals" id="ped-totales"></div>
+      <div id="ped-list" class="list"></div>
+    </section>
+
     <!-- ---------- AJUSTES ---------- -->
     <section class="view" id="view-ajustes" hidden>
       <h2 class="view-title">Ajustes</h2>
@@ -241,6 +256,12 @@
         <div class="grid2">
           <label>Filamento $/kg
             <input type="number" id="s-precioKg" inputmode="decimal" min="0">
+          </label>
+          <label>Horas de impresión al día
+            <input type="number" id="s-horasDia" inputmode="decimal" min="1">
+          </label>
+          <label>Días de colchón
+            <input type="number" id="s-colchonDias" inputmode="numeric" min="0">
           </label>
           <label>Impresora $/hora
             <input type="number" id="s-tarifaHora" inputmode="decimal" min="0">
@@ -428,6 +449,7 @@
     <button class="tab active" data-view="nuevo"><span>➕</span>Nuevo</button>
     <button class="tab" data-view="catalogo"><span>📦</span>Catálogo</button>
     <button class="tab" data-view="cotiza"><span>🧾</span>Cotizar</button>
+    <button class="tab" data-view="pedidos"><span>🛠️</span>Pedidos</button>
     <button class="tab" data-view="ajustes"><span>⚙️</span>Ajustes</button>
   </nav>
 </div>
