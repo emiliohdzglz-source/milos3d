@@ -50,11 +50,16 @@ const DEFAULTS = {
      conservador para pieza de un solo color; con multicolor la purga
      sola se come más, pero esa sí aparece en los gramos del laminador. */
   merma: 10,
-  /* Margen sobre el costo. El 55% no es un número bonito: es el que
-     reproduce el precio al que ya vendes la bola clicker ($64). Con
-     costo real de $40.89 la pieza, 55% da $63.38, que redondeado a $5
-     son los $65 de tu lista. */
-  margen: 55,
+  /* Margen sobre el costo. Está puesto para que QUEPA EL 3x2: un 3x2 es
+     33% de descuento, y para que después de ese 33% todavía quede el 20%
+     de utilidad del piso, el precio de lista tiene que ser al menos
+     costo × 1.25 ÷ 0.667 = costo × 1.875, o sea 88% de margen.
+
+     Cuesta algo: la bola clicker de una pieza pasa de $65 a $75. A
+     cambio, tres por el precio de dos es un precio que sí se puede
+     anunciar sin perder dinero. Si se cambia el piso o el descuento más
+     hondo, Ajustes recalcula este número y avisa. */
+  margen: 88,
   redondeo: 5,
   /* Ningún descuento puede dejar la utilidad por debajo de este porcentaje
      DEL PRECIO. Es la red que permite ser el más barato de la región sin
@@ -72,10 +77,8 @@ const DEFAULTS = {
   /* Descuento por cantidad del pedido (no por placa). Se aplica solo
      mientras respete el piso de utilidad. */
   escalaDescuentos: [
-    { desde: 3, pct: 5 },
-    { desde: 6, pct: 10 },
-    { desde: 12, pct: 15 },
-    { desde: 24, pct: 20 }
+    { desde: 2, pct: 15 },
+    { desde: 3, pct: 33.3 }   // 3x2: tres por el precio de dos
   ],
   anticipo: 50,
   linkPago: "",
@@ -820,6 +823,37 @@ function promoEquivalente(pct) {
     if (Math.abs(100 / n - pct) <= 1.2) return `${n}x${n - 1}`;
   }
   return "";
+}
+
+/* Reescribir innerHTML destruye el nodo que el dedo está tocando. Al
+   tocar un botón, el campo que se venía escribiendo pierde el foco y
+   dispara su `change`; si eso redibuja la tarjeta, el botón desaparece
+   entre el mousedown y el mouseup y el toque se pierde: el usuario
+   aprieta y no pasa nada. Si el HTML no cambió, no se toca el DOM —y de
+   paso no se pierden foco ni listeners. */
+function pintarSiCambia(el, html) {
+  if (!el || el.innerHTML === html) return false;
+  el.innerHTML = html;
+  return true;
+}
+
+/* El margen de lista más chico con el que el descuento MÁS HONDO de la
+   escalera todavía deja el piso de utilidad.
+
+     precio × (1 − descuento) ≥ costo ÷ (1 − piso)
+
+   Despejando, el precio de lista tiene que ser costo × 1/(1−piso) ÷
+   (1−descuento). Lo que sale de aquí es ese factor hecho porcentaje.
+   Se calcula en vez de dejarlo escrito, porque en cuanto se mueva el
+   piso o se agregue un escalón más hondo el número anterior ya no sirve
+   y nadie se iba a acordar de actualizarlo. */
+function margenMinimoParaEscala(a = DB.ajustes) {
+  const piso = Math.min(95, Math.max(0, num(a.pisoUtilidad))) / 100;
+  const escala = Array.isArray(a.escalaDescuentos) ? a.escalaDescuentos : [];
+  const pcts = escala.map(e => Math.max(0, num(e.pct)));
+  const hondo = Math.min(95, pcts.length ? Math.max(...pcts) : 0) / 100;
+  const factor = (1 / (1 - piso)) / (1 - hondo);
+  return { pct: (factor - 1) * 100, descuentoHondo: hondo * 100, piso: piso * 100 };
 }
 
 /* La escalera completa, lista para pintar: cada escalón del pedido con su
@@ -2692,7 +2726,7 @@ function pintarEscalaAjustes() {
     DB.ajustes.escalaDescuentos = DEFAULTS.escalaDescuentos.map(e => ({ ...e }));
   }
   const esc0 = DB.ajustes.escalaDescuentos;
-  cont.innerHTML = esc0.map((e, i) => `
+  const htmlEsc = esc0.map((e, i) => `
     <div class="mini esc-edit">
       <label class="esc-campo">Desde
         <input type="number" inputmode="numeric" min="2" data-esc="desde" data-i="${i}" value="${num(e.desde) || 2}">
@@ -2703,14 +2737,58 @@ function pintarEscalaAjustes() {
       <button class="icon-btn" data-esc-del="${i}">✕</button>
     </div>`).join("") || `<p class="hint">Sin escalones: todos los pedidos pagan precio de lista.</p>`;
 
-  $$("#s-escala [data-esc]").forEach(el => el.addEventListener("change", () => {
-    DB.ajustes.escalaDescuentos[+el.dataset.i][el.dataset.esc] = num(el.value);
-    guardar(); pintarEscalaAjustes(); recalcular();
-  }));
-  $$("#s-escala [data-esc-del]").forEach(b => b.addEventListener("click", () => {
-    DB.ajustes.escalaDescuentos.splice(+b.dataset.escDel, 1);
-    guardar(); pintarEscalaAjustes(); recalcular();
-  }));
+  // Igual que el aviso: si no cambió, no se vuelve a dibujar. Reescribirlo
+  // mientras alguien teclea un escalón le quitaba el campo de las manos.
+  if (pintarSiCambia(cont, htmlEsc)) {
+    $$("#s-escala [data-esc]").forEach(el => el.addEventListener("change", () => {
+      DB.ajustes.escalaDescuentos[+el.dataset.i][el.dataset.esc] = num(el.value);
+      guardar(); pintarEscalaAjustes(); recalcular();
+    }));
+    $$("#s-escala [data-esc-del]").forEach(b => b.addEventListener("click", () => {
+      DB.ajustes.escalaDescuentos.splice(+b.dataset.escDel, 1);
+      guardar(); pintarEscalaAjustes(); recalcular();
+    }));
+  }
+
+  pintarAvisoMargen();
+}
+
+/* El aviso que cierra el círculo: si el descuento más hondo no cabe con
+   el margen de lista que hay, lo dice y ofrece subirlo de un toque. Sin
+   esto, poner un 3x2 en la escalera sólo lograba que se recortara solo a
+   un 23% y nadie entendía por qué. */
+function pintarAvisoMargen() {
+  const caja = $("#s-escala-aviso");
+  if (!caja) return;
+  const m = margenMinimoParaEscala();
+  const actual = num(DB.ajustes.margen);
+  const minimo = Math.ceil(m.pct);
+
+  if (m.descuentoHondo < 0.5) {
+    pintarSiCambia(caja, `<p class="hint">Sin escalones de descuento: el precio de lista manda.</p>`);
+    return;
+  }
+  const promo = promoEquivalente(m.descuentoHondo);
+  const comoSeLlama = promo ? `un ${promo}` : `un ${m.descuentoHondo.toFixed(0)}% de descuento`;
+
+  const html = actual + 0.5 >= m.pct
+    ? `<p class="hint">✓ Tu margen de lista (${actual}%) alcanza para ofrecer ${comoSeLlama}
+         sin bajar del ${m.piso.toFixed(0)}% de utilidad.</p>`
+    : `<p class="hint esc-aviso">Para que ${comoSeLlama} quepa sin bajar del ${m.piso.toFixed(0)}%
+         de utilidad, el margen de lista tiene que ser de <b>${minimo}%</b>, y hoy está en
+         ${actual}%. Así como está, ese escalón se va a recortar solo.</p>
+       <button class="btn btn-ghost btn-block" id="s-margen-fix">Subir el margen a ${minimo}%</button>`;
+
+  // Si no cambió, el botón de antes sigue vivo y con su listener puesto.
+  if (!pintarSiCambia(caja, html)) return;
+
+  $("#s-margen-fix")?.addEventListener("click", () => {
+    DB.ajustes.margen = minimo;
+    guardar();
+    $("#s-margen").value = String(minimo);
+    pintarEscalaAjustes(); recalcular();
+    toast(`Margen de lista en ${minimo}%: el ${promo || "descuento"} ya cabe`);
+  });
 }
 
 function pintarEstadoSeguridad() {
@@ -3000,6 +3078,15 @@ function arrancar() {
     $("#s-maq-nombre").value = ""; $("#s-maq-tarifa").value = "";
     guardar(); pintarFlotaAjustes(); pintarMaquinas();
   });
+  // El aviso depende del margen y del piso, así que se repinta en cuanto
+  // se mueve cualquiera de los dos: si no, decía "no cabe" después de que
+  // ya cabía, y al revés.
+  ["s-margen", "s-pisoUtilidad", "s-precioMinimo", "s-redondeo"].forEach(id =>
+    $("#" + id)?.addEventListener("change", () => {
+      DB.ajustes[AJ_CAMPOS.find(c => c[0] === id)[1]] = num($("#" + id).value);
+      guardar(); pintarEscalaAjustes(); recalcular();
+    }));
+
   $("#s-escala-add").addEventListener("click", () => {
     if (!Array.isArray(DB.ajustes.escalaDescuentos)) DB.ajustes.escalaDescuentos = [];
     const ultimo = DB.ajustes.escalaDescuentos[DB.ajustes.escalaDescuentos.length - 1];
