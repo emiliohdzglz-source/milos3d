@@ -33,8 +33,8 @@
     })();
   </script>
   <style>html{--fundo:#f2efe9;--escuro:#16131f;background:var(--fundo)}html.tema-limao{--fundo:#e4e2dd;--escuro:#121416}html.tema-piscina{--fundo:#e6eff2;--escuro:#0d1b36}html.tema-caramelo{--fundo:#f6ecdd;--escuro:#2a150c}body{margin:0}html:not(.assentou) *,html:not(.assentou) :before,html:not(.assentou) :after{transition:none!important}html:not(.assentou) .objetos,html:not(.assentou) .vitrine{opacity:0}.abertura{z-index:90;pointer-events:none;display:none;position:fixed;inset:0;overflow:hidden}.abertura-on .abertura{pointer-events:auto;display:block}.abertura__cortina{width:100%;height:100%;display:block;position:absolute;inset:0}.abertura__cortina path{fill:var(--escuro)}</style>
-  <script type="module" crossorigin src="./assets/index-DadBujIl.js"></script>
-  <link rel="stylesheet" crossorigin href="./assets/index-DzjiV2SC.css">
+  <script type="module" crossorigin src="./assets/index-DQXEXE8M.js"></script>
+  <link rel="stylesheet" crossorigin href="./assets/index-wdctOV2Y.css">
 </head>
 <body>
   <!-- la apertura: los objetos desfilan en lo oscuro y la cortina sube en arco (motion/abertura.js) -->
@@ -59,6 +59,7 @@
         <li><a href="#topo">Inicio</a></li>
         <li><a href="#servicos">Lo que imprimimos</a></li>
         <li><a href="#como">Cómo funciona</a></li>
+        <li><a href="#taller">El taller</a></li>
         <li><a href="#casa">La familia</a></li>
         <li><a href="#loja">Tienda</a></li>
         <li><a href="./catalogo.html">Catálogo y precios</a></li>
@@ -177,6 +178,16 @@
       <p class="tp__msg">¡Tu pedido ya está listo! 🤖 Quedó precioso, ¿cuándo pasas por él?</p>
     </div>
   </div>
+</section>
+
+    <!-- El taller: oscura, el video de la granja de impresoras a pantalla ancha. El video es un loop sin sonido;
+     el poster es su primer cuadro, para la primera pintura y para quien pide menos movimiento. -->
+<section class="taller" id="taller" data-cena data-tema="escuro">
+  <h2 class="rot taller__rotulo">El taller, ahora mismo</h2>
+  <p class="taller__frase">Nuestra granja de impresoras trabaja día y noche en Querétaro.</p>
+  <figure class="taller__cuadro">
+    <video class="taller__video" src="./img/taller.mp4" poster="./img/taller.jpg" autoplay muted loop playsinline preload="metadata" aria-label="La granja de impresoras 3D de MILO'S imprimiendo juguetes de noche"></video>
+  </figure>
 </section>
 
     <!-- La colección: el abanico de tarjetas (isla React) y, debajo, el selector de mundos (isla React). -->
