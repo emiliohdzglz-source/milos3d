@@ -2316,7 +2316,20 @@ function pintarTerminados() {
     <div class="tot"><span>Con foto</span><strong class="${av.conFoto < av.total ? "alerta" : ""}">${av.conFoto}/${av.total}</strong></div>
     ${agotados ? `<div class="tot"><span>Agotados</span><strong class="alerta">${agotados}</strong></div>` : ""}`;
 
-  const orden = [...t].sort((a, b) => num(b.cantidad) - num(a.cantidad) || a.nombre.localeCompare(b.nombre));
+  /* El orden es el de la sesión de fotos, no el del almacén: primero lo
+     que todavía no está publicado y, dentro de eso, lo más caro, porque
+     una foto buena de la alcancía de $250 rinde más que una del mini
+     dumpling de $10. Lo ya publicado se va al final: ahí ya no hay nada
+     que hacer. Ordenado por cantidad, como estaba, había que ir cazando
+     el siguiente producto en la lista. */
+  const pendiente = (x) => {
+    const p = (DB.productos || []).find(y => normNombre(y.nombre) === normNombre(x.nombre));
+    return !(p && (p.imagenPath || p.imagen));
+  };
+  const orden = [...t].sort((a, b) =>
+    (pendiente(b) - pendiente(a)) ||
+    (num(b.precio) - num(a.precio)) ||
+    a.nombre.localeCompare(b.nombre));
   const estadoFicha = (x) => {
     const p = (DB.productos || []).find(y => normNombre(y.nombre) === normNombre(x.nombre));
     if (!p) return { txt: "📷 Hacer ficha", clase: "sin-ficha" };
