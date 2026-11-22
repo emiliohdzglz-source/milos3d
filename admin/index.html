@@ -123,8 +123,12 @@
 
       <div class="card">
         <h3 class="card-title">3 · Datos de impresión</h3>
+        <p class="hint">Los gramos y el tiempo son <b>los de la placa completa</b>, tal
+          como te los da Bambu Studio. Si en esa placa salen varias piezas, ponlo en
+          “Piezas por impresión” y el costo se reparte entre todas: es lo que vuelve
+          negocio a un clicker barato.</p>
         <div class="grid2">
-          <label>Gramos de filamento
+          <label>Gramos de toda la impresión
             <input type="number" id="f-gramos" inputmode="decimal" step="0.1" min="0" placeholder="0">
           </label>
           <label>Piezas por impresión
@@ -136,10 +140,10 @@
           <label>Minutos
             <input type="number" id="f-min" inputmode="numeric" min="0" max="59" value="0">
           </label>
-          <label>Minutos de armado
+          <label>Minutos de armado <b>por pieza</b>
             <input type="number" id="f-mano" inputmode="numeric" min="0" value="0">
           </label>
-          <label>Extras $ por pieza (rodamientos, imanes…)
+          <label>Extras $ por pieza (baleros, imanes…)
             <input type="number" id="f-extras" inputmode="decimal" step="0.5" min="0" value="0">
           </label>
           <label>Material

@@ -43,9 +43,18 @@ const DEFAULTS = {
      recibo, no al promedio. Si algún bimestre el consumo baja y ya no
      hay excedente, se cambia aquí y toda la flota se recalcula sola. */
   precioKwh: 4.65,
-  tarifaMano: 150,
+  /* Lo que vale una hora de armado. No es un sueldo: es lo que costaría
+     que alguien más se sentara a meterle los baleros a los clickers. */
+  tarifaMano: 120,
+  /* Fallos, soportes, purga del AMS al cambiar de color. El 10% es
+     conservador para pieza de un solo color; con multicolor la purga
+     sola se come más, pero esa sí aparece en los gramos del laminador. */
   merma: 10,
-  margen: 120,
+  /* Margen sobre el costo. El 55% no es un número bonito: es el que
+     reproduce el precio al que ya vendes la bola clicker ($64). Con
+     costo real de $40.89 la pieza, 55% da $63.38, que redondeado a $5
+     son los $65 de tu lista. */
+  margen: 55,
   redondeo: 5,
   anticipo: 50,
   linkPago: "",
@@ -715,10 +724,14 @@ function calcular(f = form, a = DB.ajustes) {
   // sale cada peso, no nada más "impresora".
   const luz = horasTotales * ch.luz;
   const desgaste = horasTotales * (ch.deprecia + ch.refacciones);
+  // Gramos y horas son los de LA IMPRESIÓN COMPLETA, tal como los da el
+  // laminador: por eso al final se dividen entre las piezas que salieron.
+  // El armado y los extras no: armar cada clicker y meterle sus dos
+  // baleros cuesta lo mismo salgan 1 o 12, así que van por pieza.
   const mano = (num(f.mano) / 60) * num(a.tarifaMano);
   const extras = num(f.extras); // rodamientos, imanes, resortes… por pieza
 
-  const directo = material + maquina + mano + extras * piezas;
+  const directo = material + maquina + (mano + extras) * piezas;
   const merma = directo * (num(a.merma) / 100);
   const costoTotal = directo + merma;
   const costoPieza = costoTotal / piezas;
@@ -740,8 +753,8 @@ function recalcular() {
     <div class="bd-row"><span>${esc(c.maquina_nombre)} (${c.horasTotales.toFixed(2)} h × ${centavos(c.tarifaHora)}/h)</span><b>${money(c.maquina)}</b></div>
     ${!c.manual && c.maquina > 0 ? `<div class="bd-row sub"><span>· desgaste de la máquina</span><b>${money(c.desgaste)}</b></div>
     <div class="bd-row sub"><span>· luz</span><b>${money(c.luz)}</b></div>` : ""}
-    <div class="bd-row"><span>Armado (${num(form.mano)} min)</span><b>${money(c.mano)}</b></div>
-    ${c.extras > 0 ? `<div class="bd-row"><span>Extras (rodamientos, etc.)${c.piezas > 1 ? ` × ${c.piezas}` : ""}</span><b>${money(c.extras * c.piezas)}</b></div>` : ""}
+    ${c.mano > 0 ? `<div class="bd-row"><span>Armado (${num(form.mano)} min por pieza)${c.piezas > 1 ? ` × ${c.piezas}` : ""}</span><b>${money(c.mano * c.piezas)}</b></div>` : ""}
+    ${c.extras > 0 ? `<div class="bd-row"><span>Extras (baleros, imanes…)${c.piezas > 1 ? ` × ${c.piezas}` : ""}</span><b>${money(c.extras * c.piezas)}</b></div>` : ""}
     <div class="bd-row"><span>Merma ${num(DB.ajustes.merma)}%</span><b>${money(c.merma)}</b></div>
     <div class="bd-row total"><span>Costo${c.piezas > 1 ? ` de ${c.piezas} piezas` : ""}</span><b>${money(c.costoTotal)}</b></div>
     ${c.piezas > 1 ? `<div class="bd-row"><span>Costo por pieza</span><b>${money(c.costoPieza)}</b></div>` : ""}
