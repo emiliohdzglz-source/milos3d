@@ -90,13 +90,110 @@ function money(n) {
   return "$" + Number(n).toLocaleString("es-MX") + " " + CONFIG.moneda;
 }
 
+/* ==========================================================
+   CATEGORÍAS Y BÚSQUEDA
+   ----------------------------------------------------------
+   Con cuatro productos la lista se recorre de un vistazo. Con
+   cuarenta y seis es una pared de scroll en un celular, y lo que
+   quedó hasta abajo no lo ve nadie.
+
+   La categoría se puede poner a mano en products.json, pero si no
+   está se deduce del nombre: etiquetar cuarenta y seis productos
+   es trabajo que no se hace, y entonces no habría categorías.
+   ========================================================== */
+const CATEGORIAS = [
+  { nombre: "Clickers y antiestrés", pistas: ["clicker", "fidget", "antiestres", "antiestrés", "sensorial", "slinky", "cubo"] },
+  { nombre: "Alcancías", pistas: ["alcancia", "alcancía"] },
+  { nombre: "Llaveros", pistas: ["llavero", "portaliga", "charm"] },
+  { nombre: "Escritorio y orden", pistas: ["contenedor", "portacepillos", "portacable", "portacelular", "porta celular", "estuchera", "sacapuntas", "separador", "pluma", "sillon", "sillón", "clip", "lipstick", "cajita", "caja", "cierre"] },
+  { nombre: "Figuras y flexis", pistas: ["perrito", "conejo", "conejito", "yorkie", "husky", "tortuga", "dino", "dumpling", "macarron", "macarrón", "caldero", "varita", "tamagotchi", "huevo", "raton", "ratón", "flexi"] },
+  { nombre: "Fiestas y eventos", pistas: ["fiesta", "evento", "pulsera", "bracelet", "niños", "ninos"] }
+];
+
+function categoriaDe(p) {
+  if (p.categoria) return p.categoria;
+  const t = (p.nombre + " " + (p.etiquetas || []).join(" "))
+    .toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
+  const hit = CATEGORIAS.find(c => c.pistas.some(k =>
+    t.includes(k.normalize("NFD").replace(/[̀-ͯ]/g, ""))));
+  return hit ? hit.nombre : "Otros";
+}
+
+let filtroCat = "todos";
+let busqueda = "";
+
+function productosVisibles() {
+  const q = busqueda.trim().toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
+  return PRODUCTOS.filter(p => {
+    if (filtroCat !== "todos" && categoriaDe(p) !== filtroCat) return false;
+    if (!q) return true;
+    const texto = (p.nombre + " " + (p.descripcion || "") + " " + (p.etiquetas || []).join(" "))
+      .toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
+    return texto.includes(q);
+  });
+}
+
+/* La barra se inyecta desde aquí, no desde el HTML: así vive en el
+   mismo archivo que la lógica que la usa y no estorba a quien esté
+   editando la página. Se arma una sola vez. */
+function pintarFiltros() {
+  const grid = $("#products-grid");
+  if (!grid) return;
+  // Con pocos productos la barra sobra y sólo quita espacio en pantalla.
+  if (PRODUCTOS.length < 8) return;
+
+  let barra = $("#cat-barra");
+  if (!barra) {
+    barra = document.createElement("div");
+    barra.id = "cat-barra";
+    barra.className = "cat-barra";
+    barra.innerHTML = `
+      <input type="search" id="cat-buscar" class="cat-buscar"
+             placeholder="Buscar: dumpling, clicker, llavero…" autocomplete="off">
+      <div class="cat-chips" id="cat-chips"></div>`;
+    grid.parentNode.insertBefore(barra, grid);
+    $("#cat-buscar").addEventListener("input", e => {
+      busqueda = e.target.value;
+      renderProducts();
+    });
+  }
+
+  const cuenta = new Map();
+  PRODUCTOS.forEach(p => {
+    const c = categoriaDe(p);
+    cuenta.set(c, (cuenta.get(c) || 0) + 1);
+  });
+  // Se ordenan por cuántos productos tienen: lo que más hay, primero.
+  const orden = [...cuenta.entries()].sort((a, b) => b[1] - a[1]);
+  $("#cat-chips").innerHTML = [["todos", PRODUCTOS.length], ...orden]
+    .map(([c, n]) => `<button class="cat-chip${filtroCat === c ? " activa" : ""}" data-cat="${c}" data-hover>
+        ${c === "todos" ? "Todo" : c} <span>${n}</span></button>`).join("");
+
+  $("#cat-chips").querySelectorAll("[data-cat]").forEach(b => b.addEventListener("click", () => {
+    filtroCat = b.dataset.cat;
+    renderProducts();
+  }));
+}
+
 function renderProducts() {
   const grid = $("#products-grid");
   if (!PRODUCTOS.length) {
     grid.innerHTML = '<div class="products-empty">Muy pronto: nuevas impresiones en camino 🚀</div>';
     return;
   }
-  grid.innerHTML = PRODUCTOS.map(p => `
+  pintarFiltros();
+  const lista = productosVisibles();
+  if (!lista.length) {
+    grid.innerHTML = `<div class="products-empty">No encontramos nada con eso.
+      <button class="btn-mini" id="cat-limpiar">Ver todo</button></div>`;
+    $("#cat-limpiar")?.addEventListener("click", () => {
+      filtroCat = "todos"; busqueda = "";
+      const inp = $("#cat-buscar"); if (inp) inp.value = "";
+      renderProducts();
+    });
+    return;
+  }
+  grid.innerHTML = lista.map(p => `
     <article class="product-card reveal" data-tilt data-id="${p.id}">
       <div class="glare"></div>
       ${p.badge ? `<div class="product-badge">${p.badge}</div>` : ""}

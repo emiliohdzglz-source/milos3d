@@ -316,3 +316,76 @@ h1, h2, h3, h4 { line-height: 1.12; letter-spacing: -0.02em; margin: 0; }
 @media (prefers-reduced-motion: reduce) {
   .reveal { opacity: 1; transform: none; transition: none; }
 }
+
+/* ==========================================================
+   Barra de categorías y búsqueda
+   Se inyecta desde app.js arriba de la rejilla, y sólo aparece
+   cuando hay suficientes productos para que valga la pena.
+   Usa los tokens de la casa para que no se vea pegada aparte.
+   ========================================================== */
+.cat-barra {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin: 0 0 22px;
+}
+.cat-buscar {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 13px 16px;
+  font: inherit;
+  font-size: 16px;            /* 16px evita que iOS haga zoom al tocar */
+  color: var(--tinta);
+  background: #fff;
+  border: 1px solid var(--linea);
+  border-radius: var(--radio);
+  -webkit-appearance: none;
+}
+.cat-buscar::placeholder { color: var(--apagado); }
+.cat-buscar:focus {
+  outline: none;
+  border-color: var(--tinta);
+}
+/* Los chips se deslizan a lo ancho en celular en vez de apilarse en
+   cuatro renglones y empujar los productos fuera de la pantalla. */
+.cat-chips {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding-bottom: 4px;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+.cat-chips::-webkit-scrollbar { display: none; }
+.cat-chip {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 9px 15px;
+  min-height: 40px;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--tinta);
+  background: #fff;
+  border: 1px solid var(--linea);
+  border-radius: 999px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.cat-chip span {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--apagado);
+}
+.cat-chip.activa {
+  background: var(--tinta);
+  color: #fff;
+  border-color: var(--tinta);
+}
+.cat-chip.activa span { color: rgba(255, 255, 255, .7); }
+
+/* El botón de pagar medía 43 px y la guía de Apple pide 44 para que el
+   pulgar no falle. Es el toque que más importa de la tienda. */
+#cart-pagar { min-height: 48px; }

@@ -2069,6 +2069,27 @@ function venderTerminado(id, cantidad = 1) {
    nombres y 46 precios que YA están capturados aquí, y por eso no se
    publican nunca. Si ya existe una ficha con ese nombre, se abre esa en
    vez de crear una repetida. */
+/* En la caja el producto se llama como se le dice en la casa. En una
+   tienda pública con precio, un nombre con marca ajena es lo que hace
+   que te tumben la publicación: Lego, Stabilo y Huntrix son de alguien
+   más. Aquí se cambia sólo el nombre que se publica; el inventario
+   sigue con el suyo, que es el que todos reconocen al buscarlo.
+
+   Se avisa en pantalla cuando pasa, y el nombre queda editable: es una
+   sugerencia, no una regla que se imponga a escondidas. */
+const NOMBRES_PUBLICOS = [
+  [/\blego\b/i, (n) => n.replace(/\blego\b/i, "de bloques")],
+  [/\bstabilo\b/i, () => "Estuchera para plumones"],
+  [/\bhuntrix\b/i, (n) => n.replace(/\bhuntrix\b/i, "de cazadora")]
+];
+
+function nombrePublico(nombre) {
+  const regla = NOMBRES_PUBLICOS.find(([re]) => re.test(nombre));
+  if (!regla) return { nombre, cambiado: false };
+  const limpio = regla[1](nombre).replace(/\s{2,}/g, " ").trim();
+  return { nombre: tituloColor(limpio), cambiado: true, antes: nombre };
+}
+
 function fichaDesdeTerminado(id) {
   const t = (DB.terminados || []).find(x => x.id === id);
   if (!t) return { error: "No encontré ese producto." };
@@ -2076,11 +2097,12 @@ function fichaDesdeTerminado(id) {
   const ya = (DB.productos || []).find(p => normNombre(p.nombre) === normNombre(t.nombre));
   if (ya) { editarProducto(ya.id); return { producto: ya, existia: true }; }
 
-  form = { ...nuevoForm(), nombre: t.nombre, precioManual: num(t.precio) || null };
+  const pub = nombrePublico(t.nombre);
+  form = { ...nuevoForm(), nombre: pub.nombre, precioManual: num(t.precio) || null };
   editandoId = null;
   irA("nuevo");
   pintarForm();
-  return { nuevo: t, existia: false };
+  return { nuevo: t, existia: false, renombrado: pub.cambiado ? pub.antes : null, nombre: pub.nombre };
 }
 
 /* Qué tanto del catálogo ya tiene ficha con foto. Es el número que dice
@@ -2361,7 +2383,13 @@ function pintarTerminados() {
   $$("#ter-lista [data-ter-ficha]").forEach(b => b.addEventListener("click", () => {
     const r = fichaDesdeTerminado(b.dataset.terFicha);
     if (r.error) return toast(r.error);
-    toast(r.existia ? "Ya tenía ficha: ábrele la foto" : "Nombre y precio puestos. Falta la foto 📷");
+    if (r.renombrado) {
+      // Se avisa, porque cambiar un nombre sin decirlo es peor que no
+      // cambiarlo: el campo queda editable si prefiere el suyo.
+      toast(`Para el sitio le puse "${r.nombre}": "${r.renombrado}" lleva marca ajena. Puedes cambiarlo.`);
+    } else {
+      toast(r.existia ? "Ya tenía ficha: ábrele la foto" : "Nombre y precio puestos. Falta la foto 📷");
+    }
   }));
 
   $$("#ter-lista [data-ter-vender]").forEach(b => b.addEventListener("click", () => {
