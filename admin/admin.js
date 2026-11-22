@@ -68,13 +68,14 @@ const DEFAULTS = {
 };
 
 /* ---------- Estado ---------- */
-let DB = { ajustes: { ...DEFAULTS }, productos: [], cotizaciones: [], pedidos: [], folio: 1000, folioPed: 0 };
+let DB = { ajustes: { ...DEFAULTS }, productos: [], cotizaciones: [], pedidos: [], inventario: null, folio: 1000, folioPed: 0 };
 let form = nuevoForm();
 let editandoId = null;
 let vistaActual = "nuevo";
 let filtroCat = "todos";
 let filtroCot = "todas";
 let filtroPed = "abiertos";
+let colorAbierto = null;        // qué color se está viendo en el inventario
 
 /* Sólo en memoria: se pierden al bloquear o cerrar. Nunca tocan el disco. */
 let LLAVE = null;        // llave que abre la bóveda
@@ -137,6 +138,7 @@ function cargar() {
       // Los pedidos son nuevos: un celular que venga de antes no los trae.
       if (!Array.isArray(DB.pedidos)) DB.pedidos = [];
       if (typeof DB.folioPed !== "number") DB.folioPed = 0;
+      if (!DB.inventario) DB.inventario = inventarioVacio();
       // Antes había una sola tarifa por hora para todo. Si este celular
       // viene de esa época, la flota arranca con ese mismo número en las
       // cuatro: así nada cambia de precio hasta que se ajuste a mano.
@@ -358,6 +360,7 @@ function irA(v) {
   if (v === "catalogo") renderCatalogo();
   if (v === "cotiza") renderCotizaciones();
   if (v === "pedidos") renderPedidos();
+  if (v === "inventario") renderInventario();
   if (v === "ajustes") pintarAjustes();
 }
 
@@ -1509,6 +1512,178 @@ function borrarProducto(id) {
 }
 
 /* ==========================================================
+   INVENTARIO DE PRE-IMPRESOS
+   ----------------------------------------------------------
+   Los clickers y los charms no se imprimen por pedido: se
+   imprimen por tandas, abecedarios completos, para ahorrar
+   tiempo y filamento. Entonces armar un nombre no es imprimir:
+   es surtir de lo que hay. Esto lleva la cuenta de qué letras
+   y figuras quedan en cada color.
+
+   Lo que se publica al sitio es una versión recortada: sirve
+   para que la tienda no ofrezca lo que no existe, pero NO dice
+   cuánto hay de verdad — las cantidades salen topadas en 9.
+   ========================================================== */
+const ABC = "ABCDEFGHIJKLMNÑOPQRSTUVWXYZ".split("");
+const FIGURAS = ["Corazón", "Moño", "Estrella", "Huella"];
+const TOPE_PUBLICO = 9;
+
+/* Los colores con los que arranca: los mismos que ya ofrece la
+   pulsera en el sitio, para que no haya dos listas distintas. */
+function inventarioVacio() {
+  return {
+    colores: [
+      { nombre: "Azul", hex: "#4a90d9" }, { nombre: "Rojo", hex: "#d93025" },
+      { nombre: "Blanco", hex: "#f2f2f2" }, { nombre: "Menta", hex: "#7fd8c8" },
+      { nombre: "Amarillo", hex: "#f2c94c" }, { nombre: "Rosa mexicano", hex: "#e91e78" },
+      { nombre: "Rosa claro", hex: "#f7a8c4" }, { nombre: "Morado", hex: "#8e6bc8" },
+      { nombre: "Lila", hex: "#b9a6e0" }
+    ],
+    piezas: {},
+    actualizado: null
+  };
+}
+
+const inv = () => (DB.inventario = DB.inventario || inventarioVacio());
+const stock = (color, pieza) => num(inv().piezas?.[color]?.[pieza]) || 0;
+const piezasDeColor = (color) => inv().piezas?.[color] || {};
+const totalColor = (color) => Object.values(piezasDeColor(color)).reduce((a, b) => a + num(b), 0);
+
+function ponerStock(color, pieza, cantidad) {
+  const i = inv();
+  i.piezas[color] = i.piezas[color] || {};
+  const n = Math.max(0, Math.round(num(cantidad)));
+  if (n === 0) delete i.piezas[color][pieza];
+  else i.piezas[color][pieza] = n;
+  i.actualizado = new Date().toISOString();
+  guardar();
+}
+
+/* ---------- La pantalla ---------- */
+function renderInventario() {
+  const i = inv();
+  const conStock = i.colores.filter(c => totalColor(c.nombre) > 0).length;
+  const piezasTotales = i.colores.reduce((s, c) => s + totalColor(c.nombre), 0);
+  $("#inv-totales").innerHTML = `
+    <div class="tot"><span>Colores</span><strong>${i.colores.length}</strong></div>
+    <div class="tot"><span>Con piezas</span><strong>${conStock}</strong></div>
+    <div class="tot"><span>Piezas</span><strong>${piezasTotales}</strong></div>`;
+
+  $("#inv-colores").innerHTML = i.colores.map((c, idx) => {
+    const t = totalColor(c.nombre);
+    return `
+    <div class="mini">
+      <span class="swatch" style="background:${esc(c.hex)}"></span>
+      <span class="grow">${esc(c.nombre)}</span>
+      <b class="${t ? "" : "dim"}">${t} pz</b>
+      <button class="btn btn-mini btn-ghost" data-inv-ver="${idx}">Ver</button>
+      <button class="icon-btn" data-inv-del="${idx}">✕</button>
+    </div>`;
+  }).join("") || `<p class="hint">Agrega un color para empezar.</p>`;
+
+  $$("#inv-colores [data-inv-ver]").forEach(b => b.addEventListener("click", () => {
+    colorAbierto = i.colores[+b.dataset.invVer].nombre;
+    pintarPiezas();
+  }));
+  $$("#inv-colores [data-inv-del]").forEach(b => b.addEventListener("click", () => {
+    const c = i.colores[+b.dataset.invDel];
+    if (totalColor(c.nombre) && !confirm(`${c.nombre} tiene ${totalColor(c.nombre)} piezas. ¿Quitar el color de todos modos?`)) return;
+    i.colores.splice(+b.dataset.invDel, 1);
+    delete i.piezas[c.nombre];
+    if (colorAbierto === c.nombre) colorAbierto = null;
+    guardar(); renderInventario(); pintarPiezas();
+  }));
+
+  pintarPiezas();
+}
+
+function pintarPiezas() {
+  const cont = $("#inv-piezas");
+  if (!cont) return;
+  if (!colorAbierto) {
+    cont.innerHTML = `<p class="hint">Toca <b>Ver</b> en un color para contar sus letras y figuras.</p>`;
+    return;
+  }
+  const c = inv().colores.find(x => x.nombre === colorAbierto);
+  if (!c) { cont.innerHTML = ""; return; }
+
+  const celda = (pieza, etiqueta) => {
+    const n = stock(colorAbierto, pieza);
+    return `<button class="pz ${n ? "" : "vacia"}" data-pz="${esc(pieza)}">
+      <span class="pz-l">${esc(etiqueta || pieza)}</span><span class="pz-n">${n}</span></button>`;
+  };
+
+  cont.innerHTML = `
+    <div class="inv-head">
+      <span class="swatch" style="background:${esc(c.hex)}"></span>
+      <b class="grow">${esc(c.nombre)}</b>
+      <span class="dim">${totalColor(c.nombre)} piezas</span>
+    </div>
+    <button class="btn btn-ghost btn-block" id="inv-tanda">➕ Entró una tanda de abecedarios</button>
+    <div class="pz-grid">${ABC.map(l => celda(l)).join("")}</div>
+    <h4 class="inv-sub">Figuras</h4>
+    <div class="pz-grid figs">${FIGURAS.map(f => celda(f, f)).join("")}</div>
+    <p class="hint">Toca una pieza para corregir su cantidad.</p>`;
+
+  cont.querySelectorAll("[data-pz]").forEach(b => b.addEventListener("click", () => {
+    const pieza = b.dataset.pz;
+    const actual = stock(colorAbierto, pieza);
+    const r = prompt(`${pieza} en ${colorAbierto} — ¿cuántas hay?`, String(actual));
+    if (r === null) return;
+    ponerStock(colorAbierto, pieza, num(r));
+    renderInventario();
+  }));
+
+  $("#inv-tanda").addEventListener("click", () => {
+    const r = prompt(`¿Cuántos abecedarios completos entraron en ${colorAbierto}?`, "1");
+    if (r === null) return;
+    const n = Math.max(0, Math.round(num(r)));
+    if (!n) return;
+    ABC.forEach(l => ponerStock(colorAbierto, l, stock(colorAbierto, l) + n));
+    renderInventario();
+    toast(`+${n} de cada letra en ${colorAbierto}`);
+  });
+}
+
+/* ---------- Publicar al sitio ----------
+   Sólo lo que la tienda necesita para no ofrecer lo que no hay.
+   Las cantidades van topadas: con 9 alcanza para validar cualquier
+   nombre, y no se enseña el tamaño real del inventario. */
+function inventarioPublico() {
+  const i = inv();
+  const piezas = {};
+  const colores = [];
+  i.colores.forEach(c => {
+    const suyas = piezasDeColor(c.nombre);
+    const hay = {};
+    Object.keys(suyas).forEach(k => {
+      const n = num(suyas[k]);
+      if (n > 0) hay[k] = Math.min(n, TOPE_PUBLICO);
+    });
+    if (Object.keys(hay).length) { colores.push({ nombre: c.nombre, hex: c.hex }); piezas[c.nombre] = hay; }
+  });
+  return { actualizado: new Date().toISOString(), colores, piezas };
+}
+
+async function publicarInventario() {
+  if (!ghOk()) return toast("Falta el token de GitHub");
+  const data = inventarioPublico();
+  if (!data.colores.length &&
+      !confirm("No hay piezas en ningún color. El sitio dejará de ofrecer nombres personalizados. ¿Publicar así?")) return;
+  busy("Publicando el inventario…");
+  try {
+    const previo = await ghLeer("inventario.json");
+    await ghEscribir("inventario.json", b64enc(JSON.stringify(data, null, 2)),
+      `Inventario de pre-impresos (${yo()})`, previo?.sha);
+    unbusy();
+    toast(`Publicado: ${data.colores.length} color(es)`);
+  } catch (e) {
+    unbusy(); console.error(e);
+    toast("No se pudo publicar el inventario");
+  }
+}
+
+/* ==========================================================
    PEDIDOS
    ----------------------------------------------------------
    Lo que pasa DESPUÉS de que el cliente dijo que sí. Un pedido
@@ -2330,6 +2505,19 @@ function arrancar() {
 
   // Cotizaciones
   $("#btn-nueva-cot").addEventListener("click", () => { const c = nuevaCotizacion(); renderCotizaciones(); editarCotizacion(c.id); });
+  $("#btn-inventario").addEventListener("click", () => irA("inventario"));
+  $("#inv-volver").addEventListener("click", () => irA("catalogo"));
+  $("#inv-publicar").addEventListener("click", publicarInventario);
+  $("#inv-color-add").addEventListener("click", () => {
+    const nom = $("#inv-color-nombre").value.trim();
+    const hex = $("#inv-color-hex").value;
+    if (!nom) return toast("Ponle nombre al color");
+    if (inv().colores.some(c => c.nombre.toLowerCase() === nom.toLowerCase())) return toast("Ese color ya está");
+    inv().colores.push({ nombre: nom.slice(0, 24), hex });
+    $("#inv-color-nombre").value = "";
+    guardar(); renderInventario();
+  });
+
   $("#btn-nuevo-ped").addEventListener("click", () => {
     const p = nuevoPedido();
     renderPedidos();

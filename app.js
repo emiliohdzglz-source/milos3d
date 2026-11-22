@@ -9,6 +9,24 @@ const cart = new Map(); // key: id + color, value: {producto, color, qty}
 const $ = (sel) => document.querySelector(sel);
 const isTouch = window.matchMedia("(hover: none), (pointer: coarse)").matches;
 
+/* Lo que hay impreso, por color. null = todavía no se publica inventario. */
+let INVENTARIO = null;
+
+/* Cuántas piezas quedan de algo en un color, descontando lo que el
+   cliente ya lleva puesto en el configurador. Sin inventario, no hay
+   límite: devuelve Infinity y nada se bloquea. */
+function disponibles(color, pieza, yaUsadas = 0) {
+  if (!INVENTARIO) return Infinity;
+  const hay = INVENTARIO.piezas?.[color]?.[pieza] || 0;
+  return hay - yaUsadas;
+}
+
+/* Los colores que pueden surtir esta pieza ahora mismo. */
+function coloresCon(pieza) {
+  if (!INVENTARIO) return null;
+  return INVENTARIO.colores.filter(c => (INVENTARIO.piezas?.[c.nombre]?.[pieza] || 0) > 0);
+}
+
 /* ---------- Cargar productos ---------- */
 async function init() {
   try {
@@ -23,6 +41,18 @@ async function init() {
   } catch (e) {
     console.error("No se pudo cargar products.json", e);
   }
+
+  /* El inventario de letras y figuras ya impresas. Es opcional a
+     propósito: si el archivo todavía no existe, el configurador se
+     comporta como siempre y no bloquea nada. Sólo cuando hay
+     inventario publicado empieza a filtrar por lo que de verdad hay. */
+  try {
+    const r = await fetch("inventario.json?v=" + Date.now(), { cache: "no-store" });
+    if (r.ok) {
+      const inv = await r.json();
+      if (inv?.colores?.length) INVENTARIO = inv;
+    }
+  } catch (e) { /* sin inventario: se ofrece todo, como antes */ }
   renderProducts();
   setupLinks();
   restoreCart();
@@ -257,7 +287,7 @@ function checkout() {
     msg += ` — ${money(itemPrice(i) * i.qty)}\n`;
     if (i.custom) {
       const c = i.custom;
-      if (c.letras.length) msg += `   🔤 Letras: ${c.letras.join("-")}\n`;
+      if (c.letras.length) msg += `   🔤 Letras: ${c.letras.map(l => `${l.letra} (${l.color})`).join(" · ")}\n`;
       if (c.figuras.length) msg += `   🎀 Figuras: ${c.figuras.map(f => `${f.figura} (${f.color})`).join(", ")}\n`;
       if (c.beads.length) msg += `   ⚪ Beads: ${c.beads.map(b => `par ${b}`).join(", ")}\n`;
       msg += `   🪢 Cordón: ${c.metros} m\n`;
@@ -282,7 +312,7 @@ let cfgCounter = Number(localStorage.getItem("milos3d_cfg_n") || 0);
 
 function customResumen(c) {
   const partes = [];
-  if (c.letras?.length) partes.push(`🔤 ${c.letras.join("")}`);
+  if (c.letras?.length) partes.push(`🔤 ${c.letras.map(l => l.letra).join("")}`);
   if (c.figuras?.length) partes.push(`🎀 ${c.figuras.length} figura(s)`);
   if (c.beads?.length) partes.push(`⚪ ${c.beads.length} par(es)`);
   partes.push(`🪢 ${c.metros} m`);
@@ -294,21 +324,33 @@ function openConfigurator(p) {
   const cfg = p.configurador;
   cfgState = { letras: [], figuras: [], beads: [], metros: 1 };
   $("#config-title").textContent = "🎨 " + p.nombre;
-  const colorOpts = cfg.colores.map(c => `<option value="${c.nombre}">${c.nombre}</option>`).join("");
-  const abc = "ABCDEFGHIJKLMNÑOPQRSTUVWXYZ".split("");
+  /* Con inventario publicado, los colores que se ofrecen son los que de
+     verdad tienen piezas; sin él, los que trae la ficha del producto. */
+  const paleta = INVENTARIO ? INVENTARIO.colores : cfg.colores;
+  const colorOpts = paleta.map(c => `<option value="${c.nombre}">${c.nombre}</option>`).join("");
+  const todasLasLetras = "ABCDEFGHIJKLMNÑOPQRSTUVWXYZ".split("");
+  // Una letra se ofrece si existe en algún color. Las que no hay, no se enseñan.
+  const abc = INVENTARIO
+    ? todasLasLetras.filter(l => (coloresCon(l) || []).length)
+    : todasLasLetras;
+  const figurasDisponibles = INVENTARIO
+    ? cfg.figuras.filter(f => (coloresCon(f) || []).length)
+    : cfg.figuras;
   $("#config-body").innerHTML = `
     <div class="config-section">
       <h4>🔤 Letras de tu nombre <small>$${cfg.letra_precio} c/u</small></h4>
       <div class="config-row">
         <select id="cfg-letra" data-hover>${abc.map(l => `<option>${l}</option>`).join("")}</select>
+        <select id="cfg-letra-color" data-hover>${colorOpts}</select>
         <button class="btn-mini" id="cfg-add-letra" data-hover>+ Agregar letra</button>
       </div>
       <div class="chips" id="chips-letras"></div>
+      <p class="cfg-aviso" id="cfg-aviso-letra"></p>
     </div>
     <div class="config-section">
       <h4>🎀 Figuras <small>$${cfg.figura_precio} c/u</small></h4>
       <div class="config-row">
-        <select id="cfg-figura" data-hover>${cfg.figuras.map(f => `<option>${f}</option>`).join("")}</select>
+        <select id="cfg-figura" data-hover>${figurasDisponibles.map(f => `<option>${f}</option>`).join("")}</select>
         <select id="cfg-figura-color" data-hover>${colorOpts}</select>
         <button class="btn-mini" id="cfg-add-figura" data-hover>+ Agregar</button>
       </div>
@@ -331,12 +373,44 @@ function openConfigurator(p) {
       </div>
     </div>`;
 
+  /* Cuenta cuántas de esta pieza y color ya lleva el cliente en el
+     configurador, para no ofrecerle más de las que quedan. */
+  const yaPuestas = (pieza, color) =>
+    cfgState.letras.filter(x => x.letra === pieza && x.color === color).length +
+    cfgState.figuras.filter(x => x.figura === pieza && x.color === color).length;
+
+  const avisar = (donde, texto) => {
+    const el = $(donde);
+    if (!el) return;
+    el.textContent = texto;
+    if (texto) setTimeout(() => { if (el.textContent === texto) el.textContent = ""; }, 4000);
+  };
+
   $("#cfg-add-letra").addEventListener("click", () => {
-    cfgState.letras.push($("#cfg-letra").value);
+    const letra = $("#cfg-letra").value;
+    const color = $("#cfg-letra-color").value;
+    if (!letra) return;
+    if (disponibles(color, letra, yaPuestas(letra, color)) <= 0) {
+      const otros = (coloresCon(letra) || []).map(c => c.nombre).filter(n => n !== color);
+      return avisar("#cfg-aviso-letra", otros.length
+        ? `Ya no quedan «${letra}» en ${color}. Sí hay en: ${otros.join(", ")}.`
+        : `Por ahora no quedan «${letra}». Escríbenos y la imprimimos para ti.`);
+    }
+    cfgState.letras.push({ letra, color });
+    avisar("#cfg-aviso-letra", "");
     renderCfg();
   });
   $("#cfg-add-figura").addEventListener("click", () => {
-    cfgState.figuras.push({ figura: $("#cfg-figura").value, color: $("#cfg-figura-color").value });
+    const figura = $("#cfg-figura").value;
+    const color = $("#cfg-figura-color").value;
+    if (!figura) return;
+    if (disponibles(color, figura, yaPuestas(figura, color)) <= 0) {
+      const otros = (coloresCon(figura) || []).map(c => c.nombre).filter(n => n !== color);
+      return avisar("#cfg-aviso-letra", otros.length
+        ? `Ya no quedan «${figura}» en ${color}. Sí hay en: ${otros.join(", ")}.`
+        : `Por ahora no quedan «${figura}».`);
+    }
+    cfgState.figuras.push({ figura, color });
     renderCfg();
   });
   $("#cfg-add-bead").addEventListener("click", () => {
@@ -351,7 +425,10 @@ function openConfigurator(p) {
 }
 
 function colorHex(nombre) {
-  return cfgProduct?.configurador?.colores.find(c => c.nombre === nombre)?.hex || "#888";
+  return (INVENTARIO?.colores || cfgProduct?.configurador?.colores || [])
+    .find(c => c.nombre === nombre)?.hex
+    || cfgProduct?.configurador?.colores.find(c => c.nombre === nombre)?.hex
+    || "#888";
 }
 
 function cfgTotal() {
@@ -365,7 +442,8 @@ function cfgTotal() {
 function renderCfg() {
   const chip = (label, dot, onIdx, idx) =>
     `<span class="chip-sel" data-list="${onIdx}" data-idx="${idx}">${dot ? `<span class="mini-dot" style="background:${dot}"></span>` : ""}${label} <b>✕</b></span>`;
-  $("#chips-letras").innerHTML = cfgState.letras.map((l, i) => chip(l, null, "letras", i)).join("") || '<span class="chips-empty">Aún sin letras</span>';
+  $("#chips-letras").innerHTML = cfgState.letras.map((l, i) =>
+    chip(l.letra, colorHex(l.color), "letras", i)).join("") || '<span class="chips-empty">Aún sin letras</span>';
   $("#chips-figuras").innerHTML = cfgState.figuras.map((f, i) => chip(`${f.figura}`, colorHex(f.color), "figuras", i)).join("") || '<span class="chips-empty">Aún sin figuras</span>';
   $("#chips-beads").innerHTML = cfgState.beads.map((b, i) => chip("Par", colorHex(b), "beads", i)).join("") || '<span class="chips-empty">Aún sin beads</span>';
   $("#cfg-metros").textContent = cfgState.metros + " m";

@@ -2,5 +2,6 @@ User-agent: *
 Disallow: /admin/
 Disallow: /cotizacion.html
 Disallow: /borradores.json
+Disallow: /inventario.json
 
 Sitemap: https://www.milos3d.com/

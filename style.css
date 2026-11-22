@@ -965,3 +965,14 @@ a.product-img { display: grid; }
   .desk-only { display: none; }
   .section { padding: 80px 6vw; }
 }
+
+/* Aviso del configurador: lo que no se puede surtir, dicho sin drama
+   y proponiendo salida. Ocupa su renglón aunque esté vacío, para que
+   el panel no brinque cuando aparece y desaparece. */
+.cfg-aviso {
+  min-height: 1.25em;
+  margin: 8px 0 0;
+  font-size: 14px;
+  line-height: 1.35;
+  color: #ffb020;
+}
