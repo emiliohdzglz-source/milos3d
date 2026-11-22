@@ -264,6 +264,20 @@
         <button class="btn btn-ghost" id="inv-color-add">+</button>
       </div>
       <div id="inv-piezas"></div>
+
+      <details class="inv-import">
+        <summary>📋 Pegar el conteo desde Excel</summary>
+        <p class="hint">Copia las filas de tu hoja y pégalas aquí. Una fila por color,
+          en este orden: <b>Color · Inicio · Inicio sin llavero · Medio · Final</b>.
+          El encabezado y la fila de totales se ignoran solos. Un color que no exista
+          se agrega.</p>
+        <textarea id="inv-pegar" rows="6" placeholder="ROSA PASTEL	7	27	1	6
+MENTA	8	13	0	1
+BABY BLUE	10	0	39	17"></textarea>
+        <button class="btn btn-ghost btn-block" id="inv-pegar-go">Leer lo pegado</button>
+        <p class="hint" id="inv-pegar-msg"></p>
+      </details>
+
       <button class="btn btn-primary btn-block" id="inv-publicar">📤 Publicar inventario al sitio</button>
     </section>
 

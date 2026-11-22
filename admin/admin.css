@@ -523,3 +523,13 @@ textarea { resize: vertical; line-height: 1.45; }
 .esc-aviso { color: #ffc35c; }
 .esc-edit { display: flex; gap: 10px; align-items: flex-end; }
 .esc-campo { flex: 1; min-width: 0; }
+
+/* Inventario: el aviso de cuántos clickers se pueden armar, y el
+   importador pegado desde Excel. */
+.inv-alerta { color: #ff9f9f; }
+.inv-import { margin: 12px 0; }
+.inv-import summary { cursor: pointer; padding: 9px 0; font-weight: 600; }
+.inv-import textarea {
+  width: 100%; box-sizing: border-box; font-family: ui-monospace, Menlo, monospace;
+  font-size: 13px; white-space: pre; overflow-x: auto;
+}
