@@ -545,3 +545,12 @@ textarea { resize: vertical; line-height: 1.45; }
 .sin-ficha { border-color: rgba(76,201,255,.45); color: #9ad8ff; }
 .sin-foto  { border-color: rgba(255,176,32,.45); color: #ffc45c; }
 .con-foto  { opacity: .55; }
+
+/* Aviso de respaldo: tiene que verse, porque lo que protege no está en
+   ningún otro lado. Pero no bloquea: es un aviso, no una puerta. */
+.aviso-respaldo {
+  margin: 12px 0; padding: 12px 14px; border-radius: 12px;
+  background: rgba(255, 176, 32, .10); border: 1px solid rgba(255, 176, 32, .35);
+}
+.aviso-respaldo p { margin: 0 0 10px; font-size: 14px; line-height: 1.45; color: #ffd98a; }
+.aviso-respaldo b { color: #ffc45c; }

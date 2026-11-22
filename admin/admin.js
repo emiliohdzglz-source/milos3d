@@ -453,6 +453,7 @@ function irA(v) {
   if (v === "catalogo") renderCatalogo();
   if (v === "cotiza") renderCotizaciones();
   if (v === "pedidos") { renderPedidos(); pintarCorte(); }
+  pintarAvisoRespaldo();
   if (v === "inventario") renderInventario();
   if (v === "ajustes") pintarAjustes();
 }
@@ -2044,11 +2045,19 @@ function venderTerminado(id, cantidad = 1) {
   if (!t) return { error: "No encontré ese producto." };
   const q = Math.max(1, Math.round(num(cantidad)));
   if (t.cantidad < q) return { error: `Sólo quedan ${t.cantidad} de ${t.nombre}.` };
-  t.cantidad -= q;
+  // El precio se revisa ANTES de tocar el stock. Si se descontaba primero
+  // y la venta fallaba —un producto sin precio, como los llaveros de
+  // letras— la pieza desaparecía del inventario y la venta no quedaba
+  // anotada por ningún lado: se perdían las dos cosas de un toque.
+  if (!(num(t.precio) > 0)) {
+    return { error: `${t.nombre} no tiene precio. Ponlo antes de venderlo.` };
+  }
   const r = registrarVenta({
     concepto: q > 1 ? `${q}× ${t.nombre}` : t.nombre,
     monto: num(t.precio) * q, canal: "mostrador"
   });
+  if (r.error) return r;          // no se vendió: el stock no se mueve
+  t.cantidad -= q;
   guardar();
   return { ...r, producto: t, quedan: t.cantidad };
 }
@@ -3494,7 +3503,48 @@ function leerAjustes() {
   recalcular();
 }
 
+/* ---------- Cuánto se perdería si este celular se pierde ----------
+   El inventario, las ventas de mostrador, la bitácora y el filamento
+   viven SÓLO aquí: no se publican a ningún lado. Los productos del
+   catálogo al menos están en el repo, pero esos cuatro no.
+
+   Y no hace falta perder el celular: Safari en iPhone borra el
+   guardado de un sitio que no se abre en 7 días. Por eso el panel
+   avisa en vez de esperar a que alguien se acuerde de respaldar. */
+const DIAS_RESPALDO = 3;
+
+function riesgoRespaldo() {
+  const soloAqui =
+    (DB.terminados || []).length +
+    (DB.ventasLocales || []).length +
+    (DB.impresiones || []).length +
+    (DB.filamentos || []).length;
+  const ultimo = DB.ultimoRespaldo ? new Date(DB.ultimoRespaldo) : null;
+  const dias = ultimo ? Math.floor((Date.now() - ultimo.getTime()) / 86400000) : null;
+  const ventas = (DB.ventasLocales || []).reduce((s, v) => s + num(v.monto), 0);
+  return { soloAqui, dias, ventas, nunca: !ultimo, urgente: soloAqui > 0 && (!ultimo || dias >= DIAS_RESPALDO) };
+}
+
+function pintarAvisoRespaldo() {
+  const r = riesgoRespaldo();
+  $$(".aviso-respaldo").forEach(caja => {
+    if (!r.urgente) { pintarSiCambia(caja, ""); caja.hidden = true; return; }
+    caja.hidden = false;
+    const cuando = r.nunca ? "nunca has respaldado este celular"
+                           : `tu último respaldo es de hace ${r.dias} día${r.dias === 1 ? "" : "s"}`;
+    pintarSiCambia(caja, `
+      <p><b>⚠️ Respalda antes de seguir.</b> ${cuando}, y tienes
+        ${r.soloAqui} registro${r.soloAqui === 1 ? "" : "s"}
+        ${r.ventas > 0 ? `y ${money(r.ventas)} en ventas ` : ""}que no existen
+        en ningún otro lado: si se borra el navegador, se van.</p>
+      <button class="btn btn-ghost btn-block" data-respaldar>💾 Descargar respaldo ahora</button>`);
+    caja.querySelector("[data-respaldar]")?.addEventListener("click", exportarRespaldo);
+  });
+}
+
 function exportarRespaldo() {
+  DB.ultimoRespaldo = new Date().toISOString();
+  guardar();
   const copia = JSON.parse(JSON.stringify(DB));
   if (copia.ajustes.gh) delete copia.ajustes.gh.token;
   if (copia.seguridad) copia.seguridad.porPasskey = null;   // la huella es de este celular
@@ -3505,6 +3555,7 @@ function exportarRespaldo() {
   a.click();
   setTimeout(() => URL.revokeObjectURL(a.href), 2000);
   toast("Respaldo descargado (el token va cifrado)");
+  pintarAvisoRespaldo();
 }
 
 async function importarRespaldo(file) {
