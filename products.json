@@ -65,7 +65,8 @@
         "Rojo, blanco y amarillo",
         "Sorpréndeme 🎲"
       ],
-      "visible": true
+      "visible": true,
+      "usa_inventario_clicker": true
     },
     {
       "id": "friendship-bracelet",

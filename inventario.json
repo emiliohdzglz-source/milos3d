@@ -1,0 +1,128 @@
+{
+  "actualizado": "2026-11-22T08:36:41.150Z",
+  "colores": [
+    {
+      "nombre": "Rosa pastel",
+      "hex": "#f7a8c4"
+    },
+    {
+      "nombre": "Menta",
+      "hex": "#7fd8c8"
+    },
+    {
+      "nombre": "Baby blue",
+      "hex": "#a9d8ea"
+    },
+    {
+      "nombre": "Morado",
+      "hex": "#8e6bc8"
+    },
+    {
+      "nombre": "Turquesa",
+      "hex": "#19b5b0"
+    },
+    {
+      "nombre": "Azul rey",
+      "hex": "#1b4fd0"
+    },
+    {
+      "nombre": "Rojo",
+      "hex": "#d93025"
+    },
+    {
+      "nombre": "Verde",
+      "hex": "#3fa45b"
+    },
+    {
+      "nombre": "Rosa fosfo",
+      "hex": "#ff2d87"
+    },
+    {
+      "nombre": "Milky pink",
+      "hex": "#f6d2dd"
+    },
+    {
+      "nombre": "Amarillo",
+      "hex": "#f2d33c"
+    },
+    {
+      "nombre": "Naranja",
+      "hex": "#ff8c42"
+    },
+    {
+      "nombre": "Blanco",
+      "hex": "#f7f7f2"
+    }
+  ],
+  "piezas": {
+    "Rosa pastel": {
+      "Inicio": 7,
+      "Inicio sin llavero": 9,
+      "Medio": 1,
+      "Final": 6
+    },
+    "Menta": {
+      "Inicio": 8,
+      "Inicio sin llavero": 9,
+      "Final": 1
+    },
+    "Baby blue": {
+      "Inicio": 9,
+      "Medio": 9,
+      "Final": 9
+    },
+    "Morado": {
+      "Inicio": 3,
+      "Inicio sin llavero": 9,
+      "Medio": 9,
+      "Final": 9
+    },
+    "Turquesa": {
+      "Inicio": 9,
+      "Inicio sin llavero": 9,
+      "Medio": 9,
+      "Final": 9
+    },
+    "Azul rey": {
+      "Inicio": 6,
+      "Inicio sin llavero": 9,
+      "Medio": 9,
+      "Final": 9
+    },
+    "Rojo": {
+      "Inicio": 9,
+      "Inicio sin llavero": 9,
+      "Medio": 9,
+      "Final": 9
+    },
+    "Verde": {
+      "Inicio": 9,
+      "Medio": 9,
+      "Final": 7
+    },
+    "Rosa fosfo": {
+      "Inicio": 9,
+      "Inicio sin llavero": 9,
+      "Medio": 3,
+      "Final": 9
+    },
+    "Milky pink": {
+      "Medio": 9
+    },
+    "Amarillo": {
+      "Inicio": 6,
+      "Inicio sin llavero": 9,
+      "Medio": 6,
+      "Final": 1
+    },
+    "Naranja": {
+      "Inicio": 8,
+      "Inicio sin llavero": 9,
+      "Medio": 9
+    },
+    "Blanco": {
+      "Inicio": 6,
+      "Medio": 9
+    }
+  }
+}

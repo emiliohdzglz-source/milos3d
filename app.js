@@ -17,6 +17,11 @@ let INVENTARIO = null;
    límite: devuelve Infinity y nada se bloquea. */
 function disponibles(color, pieza, yaUsadas = 0) {
   if (!INVENTARIO) return Infinity;
+  // Una pieza que el inventario no cuenta en NINGÚN color no está
+  // agotada: es que no se lleva su cuenta. Sin esto, publicar el stock
+  // de clickers bloqueaba todas las letras de la pulsera, que se
+  // imprimen por encargo y nunca estuvieron contadas.
+  if (!(coloresCon(pieza) || []).length) return Infinity;
   const hay = INVENTARIO.piezas?.[color]?.[pieza] || 0;
   return hay - yaUsadas;
 }
@@ -25,6 +30,21 @@ function disponibles(color, pieza, yaUsadas = 0) {
 function coloresCon(pieza) {
   if (!INVENTARIO) return null;
   return INVENTARIO.colores.filter(c => (INVENTARIO.piezas?.[c.nombre]?.[pieza] || 0) > 0);
+}
+
+/* Los colores en los que hay un clicker COMPLETO listo para entregar.
+   Un clicker es una cadena: un inicio, los medios que quieras y un
+   final. Faltando el inicio o el final no hay clicker, por muchos
+   medios que sobren — así que manda el más escaso de los dos. */
+const INICIOS_CLICKER = ["Inicio", "Inicio sin llavero"];
+function coloresConClicker() {
+  if (!INVENTARIO) return null;
+  const hay = INVENTARIO.colores.filter(c => {
+    const p = INVENTARIO.piezas?.[c.nombre] || {};
+    const inicio = INICIOS_CLICKER.reduce((s, k) => s + (p[k] || 0), 0);
+    return inicio > 0 && (p["Final"] || 0) > 0;
+  });
+  return hay.length ? hay : null;
 }
 
 /* ---------- Cargar productos ---------- */
@@ -101,6 +121,14 @@ function renderProducts() {
           <div class="product-combo">
             <span class="color-label">Combinación de colores:</span>
             <select class="combo-select" data-hover>${p.combos.map(c => `<option>${c}</option>`).join("")}</select>
+          </div>` : ""}
+        ${p.usa_inventario_clicker && coloresConClicker() ? `
+          <div class="stock-colores">
+            <span class="color-label">Listos para entrega hoy:</span>
+            <div class="stock-dots">
+              ${coloresConClicker().map(c =>
+                `<span class="stock-dot" title="${c.nombre}"><i style="background:${c.hex}"></i>${c.nombre}</span>`).join("")}
+            </div>
           </div>` : ""}
         ${p.tipo === "config" ? `
           <div class="price-list">
@@ -444,16 +472,20 @@ function openConfigurator(p) {
   $("#config-title").textContent = "🎨 " + p.nombre;
   /* Con inventario publicado, los colores que se ofrecen son los que de
      verdad tienen piezas; sin él, los que trae la ficha del producto. */
-  const paleta = INVENTARIO ? INVENTARIO.colores : cfg.colores;
-  const colorOpts = paleta.map(c => `<option value="${c.nombre}">${c.nombre}</option>`).join("");
   const todasLasLetras = "ABCDEFGHIJKLMNÑOPQRSTUVWXYZ".split("");
-  // Una letra se ofrece si existe en algún color. Las que no hay, no se enseñan.
-  const abc = INVENTARIO
-    ? todasLasLetras.filter(l => (coloresCon(l) || []).length)
-    : todasLasLetras;
-  const figurasDisponibles = INVENTARIO
-    ? cfg.figuras.filter(f => (coloresCon(f) || []).length)
-    : cfg.figuras;
+  /* El inventario sólo manda sobre lo que de verdad lleva contado. Hoy
+     lo que hay preimpreso son piezas de clicker, no letras: si se
+     filtrara a ciegas, el selector de letras saldría VACÍO y la pulsera
+     dejaría de poder pedirse aunque se imprima por encargo. Así que
+     cada categoría se filtra sólo cuando el inventario tiene algo de
+     ella; si no, se ofrece todo, como cuando no había inventario. */
+  const hayLetras = !!INVENTARIO && todasLasLetras.some(l => (coloresCon(l) || []).length);
+  const hayFiguras = !!INVENTARIO && cfg.figuras.some(f => (coloresCon(f) || []).length);
+
+  const paleta = hayLetras || hayFiguras ? INVENTARIO.colores : cfg.colores;
+  const colorOpts = paleta.map(c => `<option value="${c.nombre}">${c.nombre}</option>`).join("");
+  const abc = hayLetras ? todasLasLetras.filter(l => (coloresCon(l) || []).length) : todasLasLetras;
+  const figurasDisponibles = hayFiguras ? cfg.figuras.filter(f => (coloresCon(f) || []).length) : cfg.figuras;
   $("#config-body").innerHTML = `
     <div class="config-section">
       <h4>🔤 Letras de tu nombre <small>$${cfg.letra_precio} c/u</small></h4>

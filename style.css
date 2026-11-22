@@ -1013,3 +1013,18 @@ a.product-img { display: grid; }
   padding: 7px 10px;
 }
 .product-promo b { color: #ffc45c; }
+
+/* Colores que hay listos hoy, bajo el producto de clickers. Es la
+   diferencia entre "te lo imprimo en 3 días" y "pasa por él hoy". */
+.stock-colores { margin: 10px 0 0; }
+.stock-dots { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+.stock-dot {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: 13px; padding: 4px 9px 4px 5px;
+  border: 1px solid rgba(255, 255, 255, .14); border-radius: 999px;
+  background: rgba(255, 255, 255, .04);
+}
+.stock-dot i {
+  width: 13px; height: 13px; border-radius: 50%;
+  border: 1px solid rgba(0, 0, 0, .35); flex: 0 0 auto;
+}

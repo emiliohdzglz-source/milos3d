@@ -1781,22 +1781,39 @@ function borrarProducto(id) {
    ========================================================== */
 const ABC = "ABCDEFGHIJKLMNÑOPQRSTUVWXYZ".split("");
 const FIGURAS = ["Corazón", "Moño", "Estrella", "Huella"];
+/* Las piezas con las que se arma un clicker. No son letras: un clicker
+   es una cadena —un inicio, los medios que quieras, y un final—, así que
+   se cuentan por separado. El inicio viene en dos versiones según lleve
+   o no argolla de llavero. */
+const MODULOS = ["Inicio", "Inicio sin llavero", "Medio", "Final"];
+const INICIOS = ["Inicio", "Inicio sin llavero"];
 const TOPE_PUBLICO = 9;
 
-/* Los colores con los que arranca: los mismos que ya ofrece la
-   pulsera en el sitio, para que no haya dos listas distintas. */
+/* Los colores con los que arranca: los que de verdad hay en la casa. */
 function inventarioVacio() {
   return {
     colores: [
-      { nombre: "Azul", hex: "#4a90d9" }, { nombre: "Rojo", hex: "#d93025" },
-      { nombre: "Blanco", hex: "#f2f2f2" }, { nombre: "Menta", hex: "#7fd8c8" },
-      { nombre: "Amarillo", hex: "#f2c94c" }, { nombre: "Rosa mexicano", hex: "#e91e78" },
-      { nombre: "Rosa claro", hex: "#f7a8c4" }, { nombre: "Morado", hex: "#8e6bc8" },
-      { nombre: "Lila", hex: "#b9a6e0" }
+      { nombre: "Rosa pastel", hex: "#f7a8c4" }, { nombre: "Menta", hex: "#7fd8c8" },
+      { nombre: "Baby blue", hex: "#a9d8ea" }, { nombre: "Morado", hex: "#8e6bc8" },
+      { nombre: "Turquesa", hex: "#19b5b0" }, { nombre: "Azul rey", hex: "#1b4fd0" },
+      { nombre: "Rojo", hex: "#d93025" }, { nombre: "Verde", hex: "#3fa45b" },
+      { nombre: "Rosa fosfo", hex: "#ff2d87" }, { nombre: "Milky pink", hex: "#f6d2dd" },
+      { nombre: "Amarillo", hex: "#f2d33c" }, { nombre: "Naranja", hex: "#ff8c42" },
+      { nombre: "Blanco", hex: "#f7f7f2" }
     ],
     piezas: {},
     actualizado: null
   };
+}
+
+/* Cuántos clickers COMPLETOS se pueden armar hoy de un color.
+   Manda la pieza más escasa de las dos que no se pueden saltar: el
+   inicio y el final. Los medios sólo alargan la cadena. Esto es lo que
+   de verdad se puede vender: tener 27 inicios y ningún final son cero
+   clickers, por mucho que el total de piezas se vea bonito. */
+function clickersArmables(color) {
+  const inicio = INICIOS.reduce((s, k) => s + stock(color, k), 0);
+  return Math.min(inicio, stock(color, "Final"));
 }
 
 const inv = () => (DB.inventario = DB.inventario || inventarioVacio());
@@ -1874,7 +1891,22 @@ function pintarPiezas() {
       <b class="grow">${esc(c.nombre)}</b>
       <span class="dim">${totalColor(c.nombre)} piezas</span>
     </div>
+    ${(() => {
+      const armables = clickersArmables(colorAbierto);
+      const inicio = INICIOS.reduce((s, k) => s + stock(colorAbierto, k), 0);
+      const fin = stock(colorAbierto, "Final");
+      if (!inicio && !fin) return "";
+      const falta = inicio === armables ? "inicios" : "finales";
+      return `<p class="hint ${armables ? "" : "inv-alerta"}">
+        Con esto armas <b>${armables} clicker${armables === 1 ? "" : "s"} completo${armables === 1 ? "" : "s"}</b>
+        en ${esc(colorAbierto)}${armables === 0
+          ? `. No alcanza: tienes ${inicio} inicio(s) y ${fin} final(es), y hace falta uno de cada uno.`
+          : `, porque te topas en los ${falta} (${Math.min(inicio, fin)}).`}</p>`;
+    })()}
+    <h4 class="inv-sub">Piezas de clicker</h4>
+    <div class="pz-grid figs">${MODULOS.map(m => celda(m, m)).join("")}</div>
     <button class="btn btn-ghost btn-block" id="inv-tanda">➕ Entró una tanda de abecedarios</button>
+    <h4 class="inv-sub">Letras</h4>
     <div class="pz-grid">${ABC.map(l => celda(l)).join("")}</div>
     <h4 class="inv-sub">Figuras</h4>
     <div class="pz-grid figs">${FIGURAS.map(f => celda(f, f)).join("")}</div>
@@ -1898,6 +1930,84 @@ function pintarPiezas() {
     renderInventario();
     toast(`+${n} de cada letra en ${colorAbierto}`);
   });
+}
+
+/* ---------- Traer el inventario desde Excel ----------
+   Capturar 13 colores × 4 piezas a mano son 52 toques y un error seguro.
+   El conteo ya vive en una hoja de cálculo, así que se pega tal cual:
+   se copia de Excel, se pega aquí, y se lee.
+
+   Formato esperado, una fila por color, separado por tabuladores o por
+   comas, con o sin encabezado:
+
+     COLOR | INICIO | INICIO SIN LLAVERO | MEDIO | FINAL
+
+   Un color que no exista se agrega. No borra lo que ya había en otras
+   piezas: sólo escribe las cuatro columnas del clicker. */
+function importarInventarioPegado(texto) {
+  const lineas = String(texto || "").split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+  if (!lineas.length) return { error: "No pegaste nada." };
+
+  const i = inv();
+  const filas = [];
+  let encabezado = false;
+
+  lineas.forEach((linea, idx) => {
+    const col = linea.split(/\t|;|,(?=\s*\d)|\s{2,}/).map(s => s.trim()).filter(s => s !== "");
+    if (col.length < 2) return;
+    const nombre = col[0];
+    // Un color se llama con letras. La fila de totales de una hoja suele
+    // traer la primera celda vacía, y al partir por tabuladores el
+    // primer número se corría al lugar del nombre: entraba un color
+    // llamado "128" con los totales de todas las columnas dentro.
+    if (!/[a-záéíóúñ]/i.test(nombre)) return;
+    if (idx === 0 && /color/i.test(nombre)) { encabezado = true; return; }
+    if (/^(total|suma|gran)/i.test(nombre)) return;
+    const nums = col.slice(1).map(x => num(x.replace(/[^\d.-]/g, "")));
+    filas.push({ nombre, nums });
+  });
+
+  if (!filas.length) return { error: "No reconocí ninguna fila con color y cantidades." };
+
+  let nuevos = 0, tocados = 0, piezas = 0;
+  filas.forEach(f => {
+    // El nombre se compara sin acentos ni mayúsculas: "ROSA PASTEL" de
+    // Excel y "Rosa pastel" del panel son el mismo color.
+    const existente = i.colores.find(c => normNombre(c.nombre) === normNombre(f.nombre));
+    const nombre = existente ? existente.nombre : tituloColor(f.nombre);
+    if (!existente) { i.colores.push({ nombre, hex: hexSugerido(nombre) }); nuevos++; }
+    MODULOS.forEach((m, k) => {
+      if (k < f.nums.length) { ponerStock(nombre, m, f.nums[k]); piezas += f.nums[k]; }
+    });
+    tocados++;
+  });
+  guardar();
+  return { colores: tocados, nuevos, piezas, encabezado };
+}
+
+/* "ROSA PASTEL" se ve a gritos en una tabla; en la tienda se lee mejor
+   "Rosa pastel". */
+const tituloColor = (s) => {
+  const t = String(s).toLowerCase().trim();
+  return t.charAt(0).toUpperCase() + t.slice(1);
+};
+
+/* Un color nuevo necesita un cuadrito de algo. Se adivina por el nombre
+   y se queda editable: más vale un morado aproximado que un gris. */
+function hexSugerido(nombre) {
+  const n = normNombre(nombre);
+  const tabla = [
+    ["ROSAPASTEL", "#f7a8c4"], ["ROSAFOSFO", "#ff2d87"], ["MILKYPINK", "#f6d2dd"],
+    ["BABYBLUE", "#a9d8ea"], ["AZULREY", "#1b4fd0"], ["TURQUESA", "#19b5b0"],
+    ["MENTA", "#7fd8c8"], ["MORADO", "#8e6bc8"], ["LILA", "#b9a6e0"],
+    ["ROJO", "#d93025"], ["VERDE", "#3fa45b"], ["AMARILLO", "#f2d33c"],
+    ["NARANJA", "#ff8c42"], ["BLANCO", "#f7f7f2"], ["NEGRO", "#1b1b1b"],
+    ["GRIS", "#9aa3b2"], ["AZUL", "#4a90d9"], ["ROSA", "#e91e78"], ["CAFE", "#7a5230"]
+  ];
+  const exacto = tabla.find(([k]) => k === n);
+  if (exacto) return exacto[1];
+  const parecido = tabla.find(([k]) => n.includes(k));
+  return parecido ? parecido[1] : "#9aa3b2";
 }
 
 /* ---------- Publicar al sitio ----------
@@ -3030,6 +3140,15 @@ function arrancar() {
   $("#btn-inventario").addEventListener("click", () => irA("inventario"));
   $("#inv-volver").addEventListener("click", () => irA("catalogo"));
   $("#inv-publicar").addEventListener("click", publicarInventario);
+  $("#inv-pegar-go")?.addEventListener("click", () => {
+    const r = importarInventarioPegado($("#inv-pegar").value);
+    const msg = $("#inv-pegar-msg");
+    if (r.error) { msg.textContent = "❌ " + r.error; return; }
+    msg.textContent = `✅ ${r.colores} color(es), ${r.piezas} piezas` +
+      (r.nuevos ? ` · ${r.nuevos} color(es) nuevo(s), revísales el tono` : "");
+    $("#inv-pegar").value = "";
+    renderInventario();
+  });
   $("#inv-color-add").addEventListener("click", () => {
     const nom = $("#inv-color-nombre").value.trim();
     const hex = $("#inv-color-hex").value;
