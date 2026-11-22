@@ -328,6 +328,34 @@ y publicar cuando el conteo ya refleje la realidad.
 > Lo que todavía **no** hace: descontar solo cuando vendes. Después de surtir
 > un pedido hay que bajar la cuenta a mano, tocando las piezas que usaste.
 
+## 💳 Cómo paga un cliente
+
+Hay **dos caminos**, y conviene tenerlos claros:
+
+**1. Compra directa en la tienda.** El cliente arma su carrito en milos3d.com,
+pone su nombre y su WhatsApp, y paga con tarjeta ahí mismo. No tiene que
+escribirle a nadie ni esperar respuesta. Al terminar cae en una página que le
+confirma y le da su número de pedido.
+
+**2. Cotización.** Para lo que no está en el catálogo: el cliente escribe por
+WhatsApp, Ale arma la cotización en el panel y le manda la liga. Ahí también
+puede pagar con tarjeta.
+
+> El botón de tarjeta en la tienda aparece **sólo si `products.json` trae la
+> dirección del servicio de cobro** en `config.pagos`. Sin ella, la tienda
+> funciona como antes: todo por WhatsApp.
+
+### Las ventas de la tienda no se pierden
+
+Una compra directa no la captura nadie: el cliente paga y ya. Por eso el panel
+las va a buscar. En **Pedidos**, arriba, aparece **🛒 Ventas de la tienda** con
+lo que entró, quién fue, su WhatsApp y si el pago ya se acreditó. Un toque en
+**Convertir en pedido** y entra al flujo normal.
+
+Para que esa sección aparezca hay que poner la **clave del servicio** en
+Ajustes (es `TALLER_CLAVE` en Cloudflare). Lleva nombres y teléfonos de
+clientes, por eso va protegida.
+
 ## 🛠️ Pedidos
 
 La pestaña **Pedidos** es la pantalla del día a día: lo que pasa *después* de

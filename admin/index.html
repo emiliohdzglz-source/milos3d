@@ -267,6 +267,7 @@
         <button class="seg-btn" data-f="todos">Todos</button>
       </div>
       <div class="totals" id="ped-totales"></div>
+      <div id="ped-ventas" class="ventas" hidden></div>
       <div id="ped-taller" class="taller" hidden></div>
       <div id="ped-list" class="list"></div>
     </section>
@@ -343,13 +344,14 @@
         </label>
         <button class="btn btn-ghost btn-block" id="s-pagos-test">🔌 Probar servicio</button>
         <p class="hint" id="s-pagos-msg"></p>
-        <label>Clave del taller
-          <input type="password" id="s-taller-clave" autocomplete="off" autocapitalize="off" placeholder="la misma que el puente de casa">
+        <label>Clave del servicio
+          <input type="password" id="s-taller-clave" autocomplete="off" autocapitalize="off" placeholder="la misma que pusiste en Cloudflare">
         </label>
-        <button class="btn btn-ghost btn-block" id="s-taller-test">🖨️ Probar el taller</button>
+        <button class="btn btn-ghost btn-block" id="s-taller-test">🔑 Probar la clave</button>
         <p class="hint" id="s-taller-msg"></p>
-        <p class="hint">Con esto puedes mandar un pedido a imprimir desde el panel.
-          Necesita el puente corriendo en casa (ver <code>taller/README.md</code>).</p>
+        <p class="hint">Es <code>TALLER_CLAVE</code> en Cloudflare, y abre dos cosas:
+          ver aquí las <b>ventas que entran solas por la tienda</b>, y mandar pedidos
+          a imprimir (eso además necesita el puente de casa, ver <code>taller/README.md</code>).</p>
         <p class="hint">Con esto, el cliente paga con tarjeta desde la cotización.
           <b>Tu contraseña de Mercado Pago nunca se escribe aquí</b> — vive en el servicio de pagos.
           Mientras no lo conectes, todo sigue funcionando con transferencia y efectivo.</p>

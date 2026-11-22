@@ -28,6 +28,7 @@
  *   GET  /taller/pendientes     el puente de casa recoge lo que hay que imprimir
  *   POST /taller/reportar       el puente dice cómo le fue y cómo va la máquina
  *   GET  /taller/trabajos       el panel consulta la cola y el estado de las máquinas
+ *   GET  /ventas                lo que se vendió solo desde la tienda
  *
  * Sólo las personas de la constante ADMINS (más abajo) pueden recibir el token.
  * Esa lista se cambia editando este archivo y volviendo a publicar el Worker.
@@ -120,6 +121,8 @@ function limpiarCobro(body) {
     errores, folio, total,
     items: finales,
     cliente: String(body?.cliente || "").slice(0, 80),
+    tel: String(body?.tel || "").replace(/[^\d+]/g, "").slice(0, 20),
+    canal: body?.canal === "tienda" ? "tienda" : "cotizacion",
     email: /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(body?.email || "") ? body.email : ""
   };
 }
@@ -145,9 +148,9 @@ async function crearPreferencia(request, env) {
     statement_descriptor: "MILOS3D",
     binary_mode: false,
     back_urls: {
-      success: `${sitio}/cotizacion.html?pago=exito&folio=${encodeURIComponent(c.folio)}`,
-      pending: `${sitio}/cotizacion.html?pago=pendiente&folio=${encodeURIComponent(c.folio)}`,
-      failure: `${sitio}/cotizacion.html?pago=error&folio=${encodeURIComponent(c.folio)}`
+      success: `${sitio}/gracias.html?pago=exito&folio=${encodeURIComponent(c.folio)}`,
+      pending: `${sitio}/gracias.html?pago=pendiente&folio=${encodeURIComponent(c.folio)}`,
+      failure: `${sitio}/gracias.html?pago=error&folio=${encodeURIComponent(c.folio)}`
     },
     auto_return: "approved",
     notification_url: `${new URL(request.url).origin}/webhook`,
@@ -175,7 +178,9 @@ async function crearPreferencia(request, env) {
 
   await guardar(env, c.folio, {
     estado: "pendiente", monto: c.total, referencia,
-    preferencia: data.id, creado: new Date().toISOString()
+    preferencia: data.id, creado: new Date().toISOString(),
+    canal: c.canal, cliente: c.cliente, tel: c.tel, email: c.email,
+    items: c.items.map(i => ({ n: i.title, q: i.quantity, p: i.unit_price }))
   });
 
   return json({ url: data.init_point, referencia, total: c.total });
@@ -403,6 +408,28 @@ async function tokenDelPanel(request, env) {
   return json({ token: env.GH_TOKEN, expira: 0 });
 }
 
+/* ---------- Lo que se vendió solo ----------
+   Una venta de la tienda llega sin que nadie la capture: el cliente
+   paga y ya. Esto es para que el panel la vea y la convierta en
+   pedido. Pide la misma clave que el taller, porque lleva nombres y
+   teléfonos de clientes. */
+async function ventas(url, env) {
+  if (!env.PAGOS) return json({ error: "El servicio no guarda historial." }, 503);
+  if (!claveOk(env, url.searchParams.get("clave"))) return json({ error: "Clave incorrecta." }, 403);
+  const lista = await env.PAGOS.list({ prefix: "folio:" });
+  const todas = (await Promise.all(
+    lista.keys.map(k => env.PAGOS.get(k.name).then(v => {
+      try { return { folio: k.name.slice(6), ...JSON.parse(v) }; } catch { return null; }
+    }))
+  )).filter(Boolean);
+  return json({
+    ventas: todas
+      .filter(v => v.canal === "tienda")
+      .sort((a, b) => String(b.creado || "").localeCompare(String(a.creado || "")))
+      .slice(0, 40)
+  });
+}
+
 /* ==========================================================
    TALLER — la cola de impresión
    ----------------------------------------------------------
@@ -538,6 +565,11 @@ export default {
           taller: !!(env.TALLER_CLAVE && env.PAGOS),
           ...estado2FA(env)
         }, 200, cabeceras);
+      }
+
+      if (url.pathname === "/ventas" && request.method === "GET") {
+        const r = await ventas(url, env);
+        return new Response(r.body, { status: r.status, headers: { ...Object.fromEntries(r.headers), ...cabeceras } });
       }
 
       if (url.pathname.startsWith("/taller/")) {

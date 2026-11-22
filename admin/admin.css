@@ -240,6 +240,17 @@ textarea { resize: vertical; line-height: 1.45; }
 .pz:active { border-color: var(--cyan); }
 #inv-color-hex { width: 52px; padding: 4px; margin-top: 0; }
 
+/* ---------- Ventas de la tienda ---------- */
+.ventas { margin-bottom: 14px; display: grid; gap: 8px; }
+.ventas-tit { font-size: 15px; margin: 0 0 2px; }
+.venta {
+  background: rgba(61,220,151,.06); border: 1px solid rgba(61,220,151,.25);
+  border-radius: 12px; padding: 11px 13px;
+}
+.venta-top { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.venta-det { font-size: 14px; color: var(--dim); margin-top: 3px; }
+.venta .btn { margin-top: 9px; }
+
 /* ---------- Taller ---------- */
 .taller { margin-bottom: 14px; }
 .taller-maqs { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px; }

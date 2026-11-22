@@ -53,6 +53,13 @@ async function init() {
       if (inv?.colores?.length) INVENTARIO = inv;
     }
   } catch (e) { /* sin inventario: se ofrece todo, como antes */ }
+  // El pago con tarjeta aparece sólo si products.json trae la dirección
+  // del servicio. Sin ella, la tienda funciona como siempre por WhatsApp.
+  if (CONFIG.pagos) {
+    const caja = $("#cart-pago");
+    if (caja) caja.hidden = false;
+  }
+
   renderProducts();
   setupLinks();
   restoreCart();
@@ -274,6 +281,65 @@ function updateCartUI() {
 }
 
 /* ---------- Checkout por WhatsApp ---------- */
+/* El pedido en números: lo mismo que ve el cliente en el carrito y lo
+   mismo que se le cobra. Una sola cuenta para los dos caminos. */
+function pedidoDelCarrito() {
+  const items = [...cart.values()];
+  const total = items.reduce((s, i) => s + itemPrice(i) * i.qty, 0);
+  // Promo 3×2 del Amigo Dino: cada tercero sale gratis.
+  const dinoQty = items.filter(i => i.producto.id === "amigo-dino").reduce((s, i) => s + i.qty, 0);
+  const dino = PRODUCTOS.find(p => p.id === "amigo-dino");
+  const descuento = Math.floor(dinoQty / 3) * (dino ? dino.precio : 0);
+  return { items, total, descuento, aPagar: total - descuento };
+}
+
+/* ---------- Pagar con tarjeta, sin pasar por WhatsApp ---------- */
+function etiquetaItem(i) {
+  let t = i.producto.nombre;
+  if (i.pack) t += ` (${i.pack.nombre})`;
+  if (i.color) t += ` · ${colorName(i.color)}`;
+  if (i.nota) t += ` · ${i.nota}`;
+  if (i.custom?.letras?.length) t += ` · ${i.custom.letras.map(l => l.letra).join("")}`;
+  return t.slice(0, 120);
+}
+
+async function pagarConTarjeta() {
+  const { items, descuento, aPagar } = pedidoDelCarrito();
+  if (!items.length) { showToast("Tu carrito está vacío"); return; }
+
+  const nombre = $("#cart-nombre").value.trim();
+  const tel = $("#cart-tel").value.trim();
+  const msg = $("#cart-pago-msg");
+  if (!nombre) { msg.textContent = "Escribe tu nombre para saber de quién es el pedido."; return; }
+  if (tel.replace(/\D/g, "").length < 10) { msg.textContent = "Escribe tu WhatsApp a 10 dígitos."; return; }
+
+  const boton = $("#cart-pagar");
+  boton.disabled = true;
+  msg.textContent = "Preparando tu pago…";
+  try {
+    const r = await fetch(CONFIG.pagos.replace(/\/+$/, "") + "/preferencia", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        folio: "W" + Date.now().toString(36).toUpperCase(),
+        canal: "tienda",
+        cliente: nombre,
+        tel,
+        descuento,
+        items: items.map(i => ({ n: etiquetaItem(i), q: i.qty, p: itemPrice(i) }))
+      })
+    });
+    const d = await r.json().catch(() => ({}));
+    if (!r.ok || !d.url) throw new Error(d.error || "No se pudo preparar el pago.");
+    // Antes de irse a Mercado Pago, se guarda el carrito por si vuelve.
+    try { localStorage.setItem("milos3d_ultimo_pedido", JSON.stringify({ folio: d.referencia, total: aPagar, nombre })); } catch (e) { /* sin guardado, igual se paga */ }
+    window.location.href = d.url;
+  } catch (e) {
+    boton.disabled = false;
+    msg.textContent = e.message + " Puedes pedirlo por WhatsApp aquí abajo.";
+  }
+}
+
 function checkout() {
   const items = [...cart.values()];
   if (!items.length) { showToast("Tu carrito está vacío"); return; }
@@ -499,6 +565,7 @@ $("#cart-btn").addEventListener("click", () => toggleCart(true));
 $("#cart-close").addEventListener("click", () => toggleCart(false));
 $("#cart-overlay").addEventListener("click", () => toggleCart(false));
 $("#cart-checkout").addEventListener("click", checkout);
+$("#cart-pagar")?.addEventListener("click", pagarConTarjeta);
 
 function toggleCart(open) {
   $("#cart-drawer").classList.toggle("open", open);

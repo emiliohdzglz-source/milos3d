@@ -3,7 +3,8 @@
     "whatsapp": "524427831563",
     "instagram": "MILO3DSTORE",
     "moneda": "MXN",
-    "envio_nota": "Envíos a todo México · Entrega local en Querétaro"
+    "envio_nota": "Envíos a todo México · Entrega local en Querétaro",
+    "pagos": "https://milos3d-pagos.emilio-hdz-glz.workers.dev"
   },
   "productos": [
     {
