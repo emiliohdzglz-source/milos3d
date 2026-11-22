@@ -542,3 +542,6 @@ textarea { resize: vertical; line-height: 1.45; }
 .check input { width: auto; }
 .ter-cero { opacity: .55; }
 .ter-cero b { color: #ff9f9f; }
+.sin-ficha { border-color: rgba(76,201,255,.45); color: #9ad8ff; }
+.sin-foto  { border-color: rgba(255,176,32,.45); color: #ffc45c; }
+.con-foto  { opacity: .55; }
