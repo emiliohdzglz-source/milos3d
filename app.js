@@ -662,7 +662,7 @@ window.addEventListener("scroll", () => {
 }, { passive: true });
 
 /* ---------- Cursor personalizado ---------- */
-if (!isTouch) {
+if (!isTouch && $(".cursor-dot") && $(".cursor-ring")) {
   const dot = $(".cursor-dot");
   const ring = $(".cursor-ring");
   let mx = -100, my = -100, rx = -100, ry = -100;
@@ -729,6 +729,7 @@ setupReveal();
 /* ---------- Fondo: circuitos animados ---------- */
 (function circuitBackground() {
   const canvas = document.getElementById("circuit-bg");
+  if (!canvas) return; // la piel nueva ya no trae el fondo de circuitos
   const ctx = canvas.getContext("2d");
   let W, H, nodes = [];
   let mouseX = -1000, mouseY = -1000;
