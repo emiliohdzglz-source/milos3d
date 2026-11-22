@@ -130,7 +130,12 @@ const DEFAULTS = {
 };
 
 /* ---------- Estado ---------- */
-let DB = { ajustes: { ...DEFAULTS }, productos: [], cotizaciones: [], pedidos: [], inventario: null, folio: 1000, folioPed: 0 };
+let DB = { ajustes: { ...DEFAULTS }, productos: [], cotizaciones: [], pedidos: [], inventario: null,
+  /* Las bobinas que hay en casa, lo que se imprimió cada día y lo que
+     se vendió fuera de la tienda. Nada de esto sale del celular salvo
+     lo que se publique a propósito. */
+  filamentos: [], impresiones: [], ventasLocales: [],
+  folio: 1000, folioPed: 0 };
 let form = nuevoForm();
 let editandoId = null;
 let vistaActual = "nuevo";
@@ -205,6 +210,10 @@ function cargar() {
       if (!Array.isArray(DB.pedidos)) DB.pedidos = [];
       if (typeof DB.folioPed !== "number") DB.folioPed = 0;
       if (!DB.inventario) DB.inventario = inventarioVacio();
+      // Listas nuevas: un celular que venga de antes no las trae.
+      ["filamentos", "impresiones", "ventasLocales"].forEach(k => {
+        if (!Array.isArray(DB[k])) DB[k] = [];
+      });
       // Antes había una sola tarifa por hora para todo. Si este celular
       // viene de esa época, la flota arranca con ese mismo número en las
       // cuatro: así nada cambia de precio hasta que se ajuste a mano.
@@ -443,7 +452,7 @@ function irA(v) {
   window.scrollTo(0, 0);
   if (v === "catalogo") renderCatalogo();
   if (v === "cotiza") renderCotizaciones();
-  if (v === "pedidos") renderPedidos();
+  if (v === "pedidos") { renderPedidos(); pintarCorte(); }
   if (v === "inventario") renderInventario();
   if (v === "ajustes") pintarAjustes();
 }
@@ -1867,6 +1876,9 @@ function renderInventario() {
   }));
 
   pintarPiezas();
+  pintarFormImpresion();
+  pintarBitacora();
+  pintarFilamento();
 }
 
 function pintarPiezas() {
@@ -1932,6 +1944,149 @@ function pintarPiezas() {
   });
 }
 
+/* ==========================================================
+   FILAMENTO EN CASA
+   ----------------------------------------------------------
+   Cuántos kilos quedan y de qué. No es lo mismo que el costo
+   por kilo de Ajustes: eso es lo que vale, esto es lo que hay.
+   Sirve para dos cosas: no quedarse a media impresión, y saber
+   qué volver a pedir antes de que se acabe.
+   ========================================================== */
+const FIL_BAJO = 0.25;   // kg a partir de los cuales ya urge pedir
+
+const hoyISO = () => new Date().toISOString().slice(0, 10);
+const filKey = (f) => normNombre(`${f.marca}|${f.tipo}|${f.color}`);
+
+function agregarFilamento(marca, tipo, color, kg) {
+  if (!Array.isArray(DB.filamentos)) DB.filamentos = [];
+  const nuevo = { marca: String(marca || "").trim(), tipo: String(tipo || "").trim(),
+                  color: String(color || "").trim(), kg: Math.max(0, num(kg)) };
+  if (!nuevo.color) return null;
+  // La misma bobina capturada dos veces no son dos renglones: se
+  // actualiza el kilaje, que es el dato que cambia.
+  const ya = DB.filamentos.find(f => filKey(f) === filKey(nuevo));
+  if (ya) { ya.kg = nuevo.kg; guardar(); return ya; }
+  nuevo.id = "f" + Date.now() + Math.random().toString(36).slice(2, 6);
+  DB.filamentos.push(nuevo);
+  guardar();
+  return nuevo;
+}
+
+/* Descuenta gramos de la bobina que mejor empate por color. Si no hay
+   ninguna, no pasa nada: el registro de la impresión vale igual. */
+function gastarFilamento(color, gramos) {
+  const g = num(gramos);
+  if (!g || !Array.isArray(DB.filamentos)) return null;
+  const f = DB.filamentos.find(x => normNombre(x.color) === normNombre(color));
+  if (!f) return null;
+  f.kg = Math.max(0, Math.round((num(f.kg) - g / 1000) * 1000) / 1000);
+  guardar();
+  return f;
+}
+
+/* Pegado desde una hoja o una lista escrita a mano:
+     Marca · Tipo · Color · kg
+   Con 3 columnas se asume que falta la marca. */
+function importarFilamentoPegado(texto) {
+  const lineas = String(texto || "").split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+  if (!lineas.length) return { error: "No pegaste nada." };
+  let n = 0, kgTotal = 0;
+  lineas.forEach((linea, idx) => {
+    const col = linea.split(/\t|·|\||;|,/).map(s => s.trim()).filter(s => s !== "");
+    if (col.length < 2) return;
+    if (idx === 0 && /marca|tipo|color/i.test(col[0])) return;
+    const kg = num(String(col[col.length - 1]).replace(/[^\d.,-]/g, "").replace(",", "."));
+    const campos = col.slice(0, -1);
+    if (!campos.length || !/[a-záéíóúñ]/i.test(campos.join(""))) return;
+    const [marca, tipo, color] = campos.length >= 3
+      ? [campos[0], campos[1], campos.slice(2).join(" ")]
+      : campos.length === 2 ? ["Bambu", campos[0], campos[1]] : ["Bambu", "PLA", campos[0]];
+    if (agregarFilamento(marca, tipo, color, kg)) { n++; kgTotal += kg; }
+  });
+  return n ? { bobinas: n, kg: Math.round(kgTotal * 100) / 100 }
+           : { error: "No reconocí ninguna línea con color y kilos." };
+}
+
+/* ==========================================================
+   BITÁCORA DE IMPRESIONES
+   ----------------------------------------------------------
+   Lo que salió de las máquinas, con fecha. El inventario dice
+   cuánto HAY; esto dice cuándo se hizo y de dónde salió, que es
+   lo que falta cuando alguien pregunta "¿esto cuándo se imprimió?"
+   o cuando hay que reponer. Al guardar, suma solo al inventario:
+   capturar dos veces lo mismo es como se descuadra todo.
+   ========================================================== */
+function registrarImpresion({ fecha, color, maquina, piezas, gramos, nota }) {
+  const col = String(color || "").trim();
+  if (!col) return { error: "Falta el color." };
+  const limpias = {};
+  Object.keys(piezas || {}).forEach(k => { const n = Math.round(num(piezas[k])); if (n > 0) limpias[k] = n; });
+  if (!Object.keys(limpias).length) return { error: "No pusiste ninguna pieza." };
+
+  // El color que no exista en el inventario se da de alta solo: imprimir
+  // en un color nuevo no debería obligar a capturarlo antes en otra
+  // pantalla, porque entonces no se captura.
+  const i = inv();
+  if (!i.colores.some(c => normNombre(c.nombre) === normNombre(col))) {
+    i.colores.push({ nombre: tituloColor(col), hex: hexSugerido(col) });
+  }
+  const nombre = i.colores.find(c => normNombre(c.nombre) === normNombre(col)).nombre;
+  Object.keys(limpias).forEach(k => ponerStock(nombre, k, stock(nombre, k) + limpias[k]));
+
+  const reg = {
+    id: "im" + Date.now(), fecha: fecha || hoyISO(), color: nombre,
+    maquina: String(maquina || "").trim(), piezas: limpias,
+    gramos: Math.max(0, num(gramos)), nota: String(nota || "").trim(), quien: yo()
+  };
+  if (!Array.isArray(DB.impresiones)) DB.impresiones = [];
+  DB.impresiones.unshift(reg);
+  const bobina = gastarFilamento(nombre, reg.gramos);
+  guardar();
+  return { reg, total: Object.values(limpias).reduce((a, b) => a + b, 0), bobina };
+}
+
+/* ==========================================================
+   VENTAS FUERA DE LÍNEA
+   ----------------------------------------------------------
+   Lo que se vende en persona o por WhatsApp sin pasar por la
+   tienda. Si no se anota, no existe: la tienda sólo sabe de lo
+   que cobró ella, y el día que alguien pregunte cuánto se vendió
+   la respuesta sale corta.
+   ========================================================== */
+function registrarVenta({ fecha, concepto, monto, pagado, canal, cliente }) {
+  const m = num(monto);
+  if (!(m > 0)) return { error: "Pon el monto." };
+  const v = {
+    id: "v" + Date.now(), fecha: fecha || hoyISO(),
+    concepto: String(concepto || "").trim() || "Venta",
+    monto: m, pagado: pagado !== false,
+    canal: String(canal || "mostrador").trim(),
+    cliente: String(cliente || "").trim(), quien: yo()
+  };
+  if (!Array.isArray(DB.ventasLocales)) DB.ventasLocales = [];
+  DB.ventasLocales.unshift(v);
+  guardar();
+  return { venta: v };
+}
+
+/* El corte: lo de fuera de línea más los pedidos entregados ese día.
+   Las ventas de la tienda viven en el servicio, no aquí, y se suman
+   aparte cuando la pantalla las trae. */
+function corteDelDia(fecha = hoyISO()) {
+  const fuera = (DB.ventasLocales || []).filter(v => v.fecha === fecha);
+  const entregados = (DB.pedidos || []).filter(p =>
+    p.estado === "entregado" &&
+    (p.historial || []).some(h => h.estado === "entregado" && String(h.cuando).slice(0, 10) === fecha));
+  const sum = (a) => a.reduce((s, x) => s + num(x.monto ?? x.total), 0);
+  return {
+    fecha,
+    fuera, entregados,
+    totalFuera: sum(fuera), totalPedidos: sum(entregados),
+    porCobrar: sum(fuera.filter(v => !v.pagado)),
+    total: sum(fuera) + sum(entregados)
+  };
+}
+
 /* ---------- Traer el inventario desde Excel ----------
    Capturar 13 colores × 4 piezas a mano son 52 toques y un error seguro.
    El conteo ya vive en una hoja de cálculo, así que se pega tal cual:
@@ -1986,28 +2141,144 @@ function importarInventarioPegado(texto) {
 }
 
 /* "ROSA PASTEL" se ve a gritos en una tabla; en la tienda se lee mejor
-   "Rosa pastel". */
+   "Rosa pastel". Pero sólo se toca lo que viene GRITADO: si alguien
+   escribió "Marine Blue" fue a propósito, y bajarlo a "Marine blue"
+   rompía la búsqueda por nombre además de verse mal. */
 const tituloColor = (s) => {
-  const t = String(s).toLowerCase().trim();
-  return t.charAt(0).toUpperCase() + t.slice(1);
+  const t = String(s).trim();
+  if (/[a-záéíóúñ]/.test(t)) return t;          // ya trae minúsculas: se respeta
+  const bajo = t.toLowerCase();
+  return bajo.charAt(0).toUpperCase() + bajo.slice(1);
 };
 
 /* Un color nuevo necesita un cuadrito de algo. Se adivina por el nombre
    y se queda editable: más vale un morado aproximado que un gris. */
 function hexSugerido(nombre) {
   const n = normNombre(nombre);
+  /* En español y en inglés: los filamentos de Bambu vienen rotulados
+     "Marine Blue" o "Milky Pink", y si sólo se buscara en español todos
+     los colores nuevos entrarían en gris. Los compuestos van antes que
+     los sueltos, porque la búsqueda se queda con el primero que empata
+     y "BLUE" se comería a "MARINEBLUE". */
   const tabla = [
     ["ROSAPASTEL", "#f7a8c4"], ["ROSAFOSFO", "#ff2d87"], ["MILKYPINK", "#f6d2dd"],
-    ["BABYBLUE", "#a9d8ea"], ["AZULREY", "#1b4fd0"], ["TURQUESA", "#19b5b0"],
+    ["BABYBLUE", "#a9d8ea"], ["AZULREY", "#1b4fd0"], ["MARINEBLUE", "#1b4fa8"],
+    ["COBALTBLUE", "#1b4fd0"], ["SKYBLUE", "#4cc9ff"], ["ICEBLUE", "#a9d8ea"],
+    ["JADEWHITE", "#f7f7f2"], ["BONEWHITE", "#e8e2d4"], ["IVORYWHITE", "#faf7f0"],
+    ["HOTPINK", "#f0387f"], ["SAKURAPINK", "#f7c5d8"], ["LEMONYELLOW", "#f2d33c"],
+    ["SUNFLOWERYELLOW", "#fcc200"], ["MANDARINORANGE", "#ff8c42"],
+    ["PUMPKINORANGE", "#f28c28"], ["GRASSGREEN", "#4caf6e"], ["BAMBUGREEN", "#00ae42"],
+    ["BRIGHTGREEN", "#aedd2b"], ["MISTLETOEGREEN", "#2e8b57"], ["DARKGREEN", "#5a6e3a"],
+    ["DARKCHOCOLATE", "#4a2c20"], ["DARKBROWN", "#6b4a38"], ["COCOABROWN", "#8a6240"],
+    ["LATTEBROWN", "#d4a98a"], ["DESERTTAN", "#e4d2a8"], ["MAROONRED", "#8c1c2b"],
+    ["SCARLETRED", "#e04030"], ["DARKRED", "#c0392b"], ["LILACPURPLE", "#b9a6e0"],
+    ["INDIGOPURPLE", "#4b2e83"], ["NARDOGRAY", "#6e7175"], ["ASHGRAY", "#a8a8a8"],
+    ["DARKGRAY", "#5a5a5a"], ["LIGHTGRAY", "#cfcfcf"], ["BLUEGREY", "#6b7a99"],
+    ["TURQUESA", "#19b5b0"], ["TURQUOISE", "#19b5b0"], ["TERRACOTTA", "#c35b2a"],
     ["MENTA", "#7fd8c8"], ["MORADO", "#8e6bc8"], ["LILA", "#b9a6e0"],
     ["ROJO", "#d93025"], ["VERDE", "#3fa45b"], ["AMARILLO", "#f2d33c"],
     ["NARANJA", "#ff8c42"], ["BLANCO", "#f7f7f2"], ["NEGRO", "#1b1b1b"],
-    ["GRIS", "#9aa3b2"], ["AZUL", "#4a90d9"], ["ROSA", "#e91e78"], ["CAFE", "#7a5230"]
+    ["GRIS", "#9aa3b2"], ["AZUL", "#4a90d9"], ["ROSA", "#e91e78"], ["CAFE", "#7a5230"],
+    ["MAGENTA", "#e6007e"], ["CARAMEL", "#b8793f"], ["BRONZE", "#8a7a45"],
+    ["SILVER", "#c0c8d8"], ["GOLD", "#e3c06a"], ["BEIGE", "#f5e6d8"], ["PLUM", "#8e1b56"],
+    ["CYAN", "#00a3e0"], ["PINK", "#f06fa0"], ["PURPLE", "#7a3fd4"], ["ORANGE", "#ff7a2f"],
+    ["YELLOW", "#f2d33c"], ["GREEN", "#3fa45b"], ["BLUE", "#1b4fd0"], ["RED", "#d93025"],
+    ["WHITE", "#f7f7f2"], ["BLACK", "#1b1b1b"], ["GRAY", "#9aa3b2"], ["GREY", "#9aa3b2"],
+    ["BROWN", "#7a5230"]
   ];
   const exacto = tabla.find(([k]) => k === n);
   if (exacto) return exacto[1];
   const parecido = tabla.find(([k]) => n.includes(k));
   return parecido ? parecido[1] : "#9aa3b2";
+}
+
+/* ---------- Las pantallas de filamento, impresiones y ventas ---------- */
+function pintarFilamento() {
+  const cont = $("#fil-lista");
+  if (!cont) return;
+  const f = DB.filamentos || [];
+  const kg = f.reduce((s, x) => s + num(x.kg), 0);
+  const bajos = f.filter(x => num(x.kg) <= FIL_BAJO);
+  $("#fil-totales").innerHTML = `
+    <div class="tot"><span>Bobinas</span><strong>${f.length}</strong></div>
+    <div class="tot"><span>Kilos</span><strong>${kg.toFixed(2)}</strong></div>
+    <div class="tot"><span>Por acabarse</span><strong class="${bajos.length ? "alerta" : ""}">${bajos.length}</strong></div>`;
+
+  pintarSiCambia(cont, f.length ? [...f]
+    .sort((a, b) => num(a.kg) - num(b.kg))
+    .map(x => `
+      <div class="mini ${num(x.kg) <= FIL_BAJO ? "fil-bajo" : ""}">
+        <span class="grow">${esc(x.color)}<small>${esc(x.marca)} · ${esc(x.tipo)}</small></span>
+        <b>${num(x.kg).toFixed(2)} kg</b>
+        <button class="icon-btn" data-fil-del="${esc(x.id)}">✕</button>
+      </div>`).join("")
+    : `<p class="hint">Todavía no capturas ninguna bobina.</p>`);
+
+  $$("#fil-lista [data-fil-del]").forEach(b => b.addEventListener("click", () => {
+    DB.filamentos = DB.filamentos.filter(x => x.id !== b.dataset.filDel);
+    guardar(); pintarFilamento();
+  }));
+}
+
+function pintarFormImpresion() {
+  const cont = $("#imp-piezas");
+  if (!cont) return;
+  if (!$("#imp-fecha").value) $("#imp-fecha").value = hoyISO();
+  $("#imp-colores").innerHTML = inv().colores.map(c => `<option value="${esc(c.nombre)}">`).join("");
+  $("#imp-maquina").innerHTML = flota().map((m, i) => `<option value="${esc(m.nombre)}">${esc(m.nombre)}</option>`).join("");
+  pintarSiCambia(cont, MODULOS.map(m =>
+    `<label>${esc(m)}
+       <input type="number" inputmode="numeric" min="0" data-imp="${esc(m)}" placeholder="0">
+     </label>`).join(""));
+}
+
+function pintarBitacora() {
+  const cont = $("#imp-lista");
+  if (!cont) return;
+  const regs = (DB.impresiones || []).slice(0, 12);
+  pintarSiCambia(cont, regs.length ? regs.map(r => {
+    const total = Object.values(r.piezas).reduce((a, b) => a + b, 0);
+    const detalle = Object.entries(r.piezas).map(([k, v]) => `${v} ${k.toLowerCase()}`).join(" · ");
+    return `<div class="mini">
+      <span class="grow">${esc(r.color)} — ${total} pz<small>${esc(r.fecha)} · ${esc(detalle)}${r.gramos ? ` · ${r.gramos} g` : ""}${r.maquina ? ` · ${esc(r.maquina)}` : ""}</small></span>
+      <button class="icon-btn" data-imp-del="${esc(r.id)}">✕</button>
+    </div>`;
+  }).join("") : `<p class="hint">Sin tandas anotadas todavía.</p>`);
+
+  $$("#imp-lista [data-imp-del]").forEach(b => b.addEventListener("click", () => {
+    const r = (DB.impresiones || []).find(x => x.id === b.dataset.impDel);
+    if (!r) return;
+    if (!confirm(`¿Borrar esta tanda? Se le van a RESTAR al inventario las ${Object.values(r.piezas).reduce((a, c) => a + c, 0)} piezas de ${r.color}.`)) return;
+    // Borrar la tanda sin devolver las piezas dejaría el inventario
+    // inflado para siempre, que es peor que no poder borrar.
+    Object.keys(r.piezas).forEach(k => ponerStock(r.color, k, Math.max(0, stock(r.color, k) - r.piezas[k])));
+    DB.impresiones = DB.impresiones.filter(x => x.id !== r.id);
+    guardar(); renderInventario(); pintarBitacora();
+  }));
+}
+
+function pintarCorte() {
+  const cont = $("#vl-lista");
+  if (!cont) return;
+  if (!$("#vl-fecha").value) $("#vl-fecha").value = hoyISO();
+  const c = corteDelDia($("#vl-fecha").value || hoyISO());
+  $("#vl-corte").innerHTML = `
+    <div class="tot"><span>Fuera de línea</span><strong>${money(c.totalFuera)}</strong></div>
+    <div class="tot"><span>Pedidos entregados</span><strong>${money(c.totalPedidos)}</strong></div>
+    <div class="tot"><span>Del día</span><strong>${money(c.total)}</strong></div>
+    ${c.porCobrar > 0 ? `<div class="tot"><span>Sin cobrar</span><strong class="alerta">${money(c.porCobrar)}</strong></div>` : ""}`;
+
+  pintarSiCambia(cont, c.fuera.length ? c.fuera.map(v => `
+    <div class="mini">
+      <span class="grow">${esc(v.concepto)}<small>${esc(v.canal)}${v.cliente ? ` · ${esc(v.cliente)}` : ""}${v.pagado ? "" : " · POR COBRAR"}</small></span>
+      <b>${money(v.monto)}</b>
+      <button class="icon-btn" data-vl-del="${esc(v.id)}">✕</button>
+    </div>`).join("") : `<p class="hint">Sin ventas anotadas ese día.</p>`);
+
+  $$("#vl-lista [data-vl-del]").forEach(b => b.addEventListener("click", () => {
+    DB.ventasLocales = DB.ventasLocales.filter(x => x.id !== b.dataset.vlDel);
+    guardar(); pintarCorte();
+  }));
 }
 
 /* ---------- Publicar al sitio ----------
@@ -3140,6 +3411,55 @@ function arrancar() {
   $("#btn-inventario").addEventListener("click", () => irA("inventario"));
   $("#inv-volver").addEventListener("click", () => irA("catalogo"));
   $("#inv-publicar").addEventListener("click", publicarInventario);
+
+  /* ---- Filamento ---- */
+  $("#fil-add")?.addEventListener("click", () => {
+    const r = agregarFilamento($("#fil-marca").value, $("#fil-tipo").value, $("#fil-color").value, $("#fil-kg").value);
+    if (!r) return toast("Pon al menos el color");
+    $("#fil-color").value = ""; $("#fil-kg").value = "";
+    pintarFilamento(); toast(`${r.color}: ${num(r.kg).toFixed(2)} kg`);
+  });
+  $("#fil-pegar-go")?.addEventListener("click", () => {
+    const r = importarFilamentoPegado($("#fil-pegar").value);
+    const m = $("#fil-pegar-msg");
+    if (r.error) { m.textContent = "❌ " + r.error; return; }
+    m.textContent = `✅ ${r.bobinas} bobina(s), ${r.kg} kg`;
+    $("#fil-pegar").value = "";
+    pintarFilamento();
+  });
+
+  /* ---- Bitácora de impresiones ---- */
+  $("#imp-guardar")?.addEventListener("click", () => {
+    const piezas = {};
+    $$("#imp-piezas [data-imp]").forEach(el => { piezas[el.dataset.imp] = num(el.value); });
+    const r = registrarImpresion({
+      fecha: $("#imp-fecha").value, color: $("#imp-color").value,
+      maquina: $("#imp-maquina").value, piezas,
+      gramos: $("#imp-gramos").value, nota: $("#imp-nota").value
+    });
+    const m = $("#imp-msg");
+    if (r.error) { m.textContent = "❌ " + r.error; return; }
+    m.textContent = `✅ ${r.total} piezas sumadas a ${r.reg.color}` +
+      (r.bobina ? ` · quedan ${num(r.bobina.kg).toFixed(2)} kg de ${r.bobina.color}` : "");
+    $$("#imp-piezas [data-imp]").forEach(el => { el.value = ""; });
+    $("#imp-gramos").value = ""; $("#imp-nota").value = "";
+    renderInventario(); pintarBitacora(); pintarFilamento();
+  });
+
+  /* ---- Ventas fuera de línea ---- */
+  $("#vl-fecha")?.addEventListener("change", pintarCorte);
+  $("#vl-guardar")?.addEventListener("click", () => {
+    const r = registrarVenta({
+      fecha: $("#vl-fecha").value, concepto: $("#vl-concepto").value,
+      monto: $("#vl-monto").value, pagado: $("#vl-pagado").checked,
+      canal: $("#vl-canal").value, cliente: $("#vl-cliente").value
+    });
+    const m = $("#vl-msg");
+    if (r.error) { m.textContent = "❌ " + r.error; return; }
+    m.textContent = `✅ ${money(r.venta.monto)} anotados`;
+    $("#vl-concepto").value = ""; $("#vl-monto").value = ""; $("#vl-cliente").value = "";
+    pintarCorte();
+  });
   $("#inv-pegar-go")?.addEventListener("click", () => {
     const r = importarInventarioPegado($("#inv-pegar").value);
     const msg = $("#inv-pegar-msg");

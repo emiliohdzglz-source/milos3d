@@ -1,5 +1,5 @@
 {
-  "actualizado": "2026-11-22T08:36:41.150Z",
+  "actualizado": "2026-11-22T08:58:16.117Z",
   "colores": [
     {
       "nombre": "Rosa pastel",
@@ -52,6 +52,10 @@
     {
       "nombre": "Blanco",
       "hex": "#f7f7f2"
+    },
+    {
+      "nombre": "Marine blue",
+      "hex": "#1b4fa8"
     }
   ],
   "piezas": {
@@ -107,13 +111,15 @@
       "Final": 9
     },
     "Milky pink": {
-      "Medio": 9
+      "Inicio": 9,
+      "Medio": 9,
+      "Final": 6
     },
     "Amarillo": {
-      "Inicio": 6,
+      "Inicio": 9,
       "Inicio sin llavero": 9,
-      "Medio": 6,
-      "Final": 1
+      "Medio": 9,
+      "Final": 7
     },
     "Naranja": {
       "Inicio": 8,
@@ -123,6 +129,11 @@
     "Blanco": {
       "Inicio": 6,
       "Medio": 9
+    },
+    "Marine blue": {
+      "Inicio": 9,
+      "Medio": 9,
+      "Final": 6
     }
   }
 }
