@@ -13,7 +13,7 @@
       "descripcion": "Dinosaurio articulado con balón de fútbol incluido. Cuerpo flexible impreso en una sola pieza — articula, juega y colecciona.",
       "precio": 150,
       "imagen": "images/amigo-dino.jpg",
-      "badge": "Oferta: ¡Compra 2 y el 3° es GRATIS!",
+      "badge": "3×2 — ¡Lleva 3 y paga 2!",
       "colores": [
         "#4a7c3a",
         "#f2d33c",
@@ -24,7 +24,11 @@
         "Colores personalizables",
         "Balón incluido"
       ],
-      "visible": true
+      "visible": true,
+      "promo": {
+        "lleva": 3,
+        "paga": 2
+      }
     },
     {
       "id": "fidget-clickers",
@@ -149,11 +153,11 @@
     },
     {
       "id": "ball-12-sides-fidget-clicker",
-      "nombre": "Bola clicker antiestrés ",
+      "nombre": "Bola clicker antiestrés",
       "descripcion": "Bola clicker antiestrés: el antiestrés que no vas a querer soltar. Cada clic relaja, entretiene y ayuda a la concentración — perfecto para la escuela, la oficina o para traer en el bolsillo. Fabricado en PLA premium con impresión de precisión. Disponible en 11 colores: pídelo en tu combinación favorita. Hecho en México 🇲🇽 por MILO'S 3D. Pídelo hoy por WhatsApp y lo imprimimos para ti.",
-      "precio": 64,
+      "precio": 75,
       "imagen": "images/ball-12-sides-fidget-clicker.jpg",
-      "badge": "",
+      "badge": "3×2 — ¡Lleva 3 y paga 2!",
       "colores": [
         "#1b1b1b",
         "#d93025",
@@ -173,7 +177,11 @@
         "12 lados",
         "clicker"
       ],
-      "visible": true
+      "visible": true,
+      "promo": {
+        "lleva": 3,
+        "paga": 2
+      }
     },
     {
       "id": "ejemplo-producto",
