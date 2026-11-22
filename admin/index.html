@@ -309,6 +309,39 @@ BABY BLUE	10	0	39	17"></textarea>
         <div id="imp-lista" class="list-mini"></div>
       </div>
 
+      <!-- ---------- Producto terminado ---------- -->
+      <div class="card">
+        <h3 class="card-title">📦 Producto terminado</h3>
+        <p class="hint">Lo que ya está impreso y listo para vender. El botón
+          <b>Vendí 1</b> baja el stock y anota la venta del día de un solo toque.</p>
+        <div class="totals" id="ter-totales"></div>
+        <div id="ter-lista" class="list-mini"></div>
+        <p class="hint" id="ter-msg"></p>
+        <div class="grid2">
+          <label>Producto
+            <input type="text" id="ter-nombre" placeholder="Dumpling">
+          </label>
+          <label>Cuántos hay
+            <input type="number" id="ter-cant" inputmode="numeric" min="0" placeholder="0">
+          </label>
+          <label>Precio $
+            <input type="number" id="ter-precio" inputmode="decimal" min="0" placeholder="45">
+          </label>
+        </div>
+        <button class="btn btn-ghost btn-block" id="ter-add">+ Agregar producto</button>
+        <details class="inv-import">
+          <summary>📋 Pegar la lista de producto terminado</summary>
+          <p class="hint">Una línea por producto, como está en tu hoja:
+            <b>cantidad · producto · precio</b>. También acepta
+            producto · cantidad · precio. Los renglones de título se ignoran.</p>
+          <textarea id="ter-pegar" rows="6" placeholder="6	PLUMAS EN FORMA DE LÁPIZ	35
+1	PORTACEPILLOS LEGO	150
+2	CALDERO DE BRUJA	15"></textarea>
+          <button class="btn btn-ghost btn-block" id="ter-pegar-go">Leer lo pegado</button>
+          <p class="hint" id="ter-pegar-msg"></p>
+        </details>
+      </div>
+
       <!-- ---------- Filamento ---------- -->
       <div class="card">
         <h3 class="card-title">🧵 Filamento en casa</h3>

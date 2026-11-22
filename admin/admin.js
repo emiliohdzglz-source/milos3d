@@ -134,7 +134,7 @@ let DB = { ajustes: { ...DEFAULTS }, productos: [], cotizaciones: [], pedidos: [
   /* Las bobinas que hay en casa, lo que se imprimió cada día y lo que
      se vendió fuera de la tienda. Nada de esto sale del celular salvo
      lo que se publique a propósito. */
-  filamentos: [], impresiones: [], ventasLocales: [],
+  filamentos: [], impresiones: [], ventasLocales: [], terminados: [],
   folio: 1000, folioPed: 0 };
 let form = nuevoForm();
 let editandoId = null;
@@ -211,7 +211,7 @@ function cargar() {
       if (typeof DB.folioPed !== "number") DB.folioPed = 0;
       if (!DB.inventario) DB.inventario = inventarioVacio();
       // Listas nuevas: un celular que venga de antes no las trae.
-      ["filamentos", "impresiones", "ventasLocales"].forEach(k => {
+      ["filamentos", "impresiones", "ventasLocales", "terminados"].forEach(k => {
         if (!Array.isArray(DB[k])) DB[k] = [];
       });
       // Antes había una sola tarifa por hora para todo. Si este celular
@@ -1879,6 +1879,7 @@ function renderInventario() {
   pintarFormImpresion();
   pintarBitacora();
   pintarFilamento();
+  pintarTerminados();
 }
 
 function pintarPiezas() {
@@ -2005,6 +2006,78 @@ function importarFilamentoPegado(texto) {
   });
   return n ? { bobinas: n, kg: Math.round(kgTotal * 100) / 100 }
            : { error: "No reconocí ninguna línea con color y kilos." };
+}
+
+/* ==========================================================
+   PRODUCTOS TERMINADOS
+   ----------------------------------------------------------
+   La caja de cosas ya impresas y listas para vender: el dumpling,
+   el perrito, los llaveros. No son piezas de clicker ni filamento,
+   son producto terminado con su precio.
+
+   Lo que lo hace útil no es la lista: es poder vender desde ahí.
+   Un toque descuenta la pieza Y anota la venta del día. Capturar
+   la venta por un lado y bajar el stock por otro es como se
+   termina vendiendo algo que ya no existe.
+   ========================================================== */
+function agregarTerminado(nombre, cantidad, precio) {
+  if (!Array.isArray(DB.terminados)) DB.terminados = [];
+  const n = String(nombre || "").trim();
+  if (!n) return null;
+  const ya = DB.terminados.find(t => normNombre(t.nombre) === normNombre(n));
+  if (ya) {
+    ya.cantidad = Math.max(0, Math.round(num(cantidad)));
+    if (num(precio) > 0) ya.precio = num(precio);
+    guardar(); return ya;
+  }
+  const t = { id: "t" + Date.now() + Math.random().toString(36).slice(2, 6),
+              nombre: tituloColor(n), cantidad: Math.max(0, Math.round(num(cantidad))), precio: num(precio) };
+  DB.terminados.push(t);
+  guardar();
+  return t;
+}
+
+/* Vender una pieza: baja el stock y deja la venta anotada en el corte
+   del día, con su precio. Una sola acción, porque son una sola cosa. */
+function venderTerminado(id, cantidad = 1) {
+  const t = (DB.terminados || []).find(x => x.id === id);
+  if (!t) return { error: "No encontré ese producto." };
+  const q = Math.max(1, Math.round(num(cantidad)));
+  if (t.cantidad < q) return { error: `Sólo quedan ${t.cantidad} de ${t.nombre}.` };
+  t.cantidad -= q;
+  const r = registrarVenta({
+    concepto: q > 1 ? `${q}× ${t.nombre}` : t.nombre,
+    monto: num(t.precio) * q, canal: "mostrador"
+  });
+  guardar();
+  return { ...r, producto: t, quedan: t.cantidad };
+}
+
+/* Pegado desde la hoja, en el orden en que ya está escrita:
+     cantidad · producto · precio
+   Acepta también producto · cantidad · precio, decidiendo por cuál de
+   las dos primeras columnas es el número. */
+function importarTerminadosPegado(texto) {
+  const lineas = String(texto || "").split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+  if (!lineas.length) return { error: "No pegaste nada." };
+  let n = 0, piezas = 0, valor = 0, sinPrecio = [];
+  lineas.forEach(linea => {
+    const col = linea.split(/\t|·|\||;|,/).map(s => s.trim()).filter(s => s !== "");
+    if (col.length < 2) return;
+    if (/^inventario|^total|^suma/i.test(col[0])) return;
+    const esNum = (x) => /^\d+([.,]\d+)?$/.test(String(x).replace(/\s/g, ""));
+    let cantidad, nombre, precio;
+    if (esNum(col[0])) { cantidad = num(col[0]); nombre = col[1]; precio = num(col[2]); }
+    else if (esNum(col[1])) { nombre = col[0]; cantidad = num(col[1]); precio = num(col[2]); }
+    else return;
+    if (!nombre || !/[a-záéíóúñ]/i.test(nombre)) return;
+    const t = agregarTerminado(nombre, cantidad, precio);
+    if (!t) return;
+    n++; piezas += t.cantidad; valor += t.cantidad * num(t.precio);
+    if (!num(t.precio)) sinPrecio.push(t.nombre);
+  });
+  return n ? { productos: n, piezas, valor, sinPrecio }
+           : { error: "No reconocí ninguna línea con cantidad y producto." };
 }
 
 /* ==========================================================
@@ -2193,6 +2266,41 @@ function hexSugerido(nombre) {
 }
 
 /* ---------- Las pantallas de filamento, impresiones y ventas ---------- */
+function pintarTerminados() {
+  const cont = $("#ter-lista");
+  if (!cont) return;
+  const t = DB.terminados || [];
+  const piezas = t.reduce((s, x) => s + num(x.cantidad), 0);
+  const valor = t.reduce((s, x) => s + num(x.cantidad) * num(x.precio), 0);
+  const agotados = t.filter(x => !num(x.cantidad)).length;
+  $("#ter-totales").innerHTML = `
+    <div class="tot"><span>Productos</span><strong>${t.length}</strong></div>
+    <div class="tot"><span>Piezas</span><strong>${piezas}</strong></div>
+    <div class="tot"><span>Valor</span><strong>${money(valor)}</strong></div>
+    ${agotados ? `<div class="tot"><span>Agotados</span><strong class="alerta">${agotados}</strong></div>` : ""}`;
+
+  const orden = [...t].sort((a, b) => num(b.cantidad) - num(a.cantidad) || a.nombre.localeCompare(b.nombre));
+  pintarSiCambia(cont, orden.length ? orden.map(x => `
+    <div class="mini ${num(x.cantidad) ? "" : "ter-cero"}">
+      <span class="grow">${esc(x.nombre)}<small>${money(x.precio)} c/u${num(x.cantidad) ? "" : " · AGOTADO"}</small></span>
+      <b>${num(x.cantidad)}</b>
+      <button class="btn btn-mini btn-ghost" data-ter-vender="${esc(x.id)}" ${num(x.cantidad) ? "" : "disabled"}>Vendí 1</button>
+      <button class="icon-btn" data-ter-del="${esc(x.id)}">✕</button>
+    </div>`).join("") : `<p class="hint">Todavía no capturas producto terminado.</p>`);
+
+  $$("#ter-lista [data-ter-vender]").forEach(b => b.addEventListener("click", () => {
+    const r = venderTerminado(b.dataset.terVender);
+    const m = $("#ter-msg");
+    if (r.error) { m.textContent = "❌ " + r.error; return; }
+    m.textContent = `✅ ${r.producto.nombre} ${money(r.venta.monto)} · quedan ${r.quedan}`;
+    pintarTerminados(); pintarCorte();
+  }));
+  $$("#ter-lista [data-ter-del]").forEach(b => b.addEventListener("click", () => {
+    DB.terminados = DB.terminados.filter(x => x.id !== b.dataset.terDel);
+    guardar(); pintarTerminados();
+  }));
+}
+
 function pintarFilamento() {
   const cont = $("#fil-lista");
   if (!cont) return;
@@ -3411,6 +3519,23 @@ function arrancar() {
   $("#btn-inventario").addEventListener("click", () => irA("inventario"));
   $("#inv-volver").addEventListener("click", () => irA("catalogo"));
   $("#inv-publicar").addEventListener("click", publicarInventario);
+
+  /* ---- Producto terminado ---- */
+  $("#ter-add")?.addEventListener("click", () => {
+    const r = agregarTerminado($("#ter-nombre").value, $("#ter-cant").value, $("#ter-precio").value);
+    if (!r) return toast("Pon al menos el nombre");
+    $("#ter-nombre").value = ""; $("#ter-cant").value = ""; $("#ter-precio").value = "";
+    pintarTerminados(); toast(`${r.nombre}: ${r.cantidad} pz`);
+  });
+  $("#ter-pegar-go")?.addEventListener("click", () => {
+    const r = importarTerminadosPegado($("#ter-pegar").value);
+    const m = $("#ter-pegar-msg");
+    if (r.error) { m.textContent = "❌ " + r.error; return; }
+    m.textContent = `✅ ${r.productos} producto(s), ${r.piezas} piezas, ${money(r.valor)}` +
+      (r.sinPrecio.length ? ` · sin precio: ${r.sinPrecio.join(", ")}` : "");
+    $("#ter-pegar").value = "";
+    pintarTerminados();
+  });
 
   /* ---- Filamento ---- */
   $("#fil-add")?.addEventListener("click", () => {
