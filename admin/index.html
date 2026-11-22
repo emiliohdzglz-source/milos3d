@@ -282,6 +282,9 @@
           <label>Filamento $/kg
             <input type="number" id="s-precioKg" inputmode="decimal" min="0">
           </label>
+          <label>Luz $/kWh
+            <input type="number" id="s-precioKwh" inputmode="decimal" min="0" step="0.01">
+          </label>
           <label>Horas de impresión al día
             <input type="number" id="s-horasDia" inputmode="decimal" min="1">
           </label>
@@ -304,12 +307,19 @@
             <input type="number" id="s-redondeo" inputmode="numeric" min="1">
           </label>
         </div>
-        <p class="hint">La impresora $/hora cubre luz, boquilla y desgaste. Un valor típico casero es $15–30 MXN/h.</p>
+        <p class="hint"><b>Luz $/kWh</b>: tómalo de tu recibo de CFE. No el promedio del
+          recibo: el precio del <b>último bloque</b> que te cobraron (el excedente), porque
+          cada hora de impresora se suma arriba de todo lo demás. Viene en el recibo como
+          precio por kWh; súmale 16% de IVA. Este número mueve el costo de las cuatro máquinas.</p>
+        <p class="hint"><b>Impresora $/hora</b> ya casi no se usa: cada máquina calcula su
+          propio costo abajo. Sólo aplica a una máquina a la que no le hayas puesto precio.</p>
       </div>
 
       <div class="card">
         <h3 class="card-title">Mis máquinas</h3>
-        <p class="hint">Cada una cuesta distinto por hora. El precio de un producto usa la de la máquina que lo hace.</p>
+        <p class="hint">El costo por hora <b>no se teclea</b>: sale de lo que te costó la
+          máquina entre sus horas de vida, más la luz y las refacciones. Pon lo que pagaste
+          y el resto se calcula solo.</p>
         <div id="s-maquinas" class="list-mini"></div>
         <div class="row">
           <input type="text" id="s-maq-nombre" placeholder="Nombre (H2D)">
@@ -317,12 +327,17 @@
           <button class="btn btn-ghost" id="s-maq-add">+</button>
         </div>
         <details class="det">
-          <summary>¿Cómo saco el costo por hora?</summary>
-          <p class="hint">Lo que te costó la máquina ÷ las horas que esperas que dure,
-          más la luz y el mantenimiento por hora. Ejemplo: $25,000 entre 6,000 horas de
-          vida son $4.20; súmale ~$2 de luz y ~$3 de boquillas, bandas y placas,
-          y te da ≈ $9/hora. Las que imprimen más rápido salen más baratas por pieza
-          aunque cuesten más por hora.</p>
+          <summary>¿De dónde sale cada número?</summary>
+          <p class="hint"><b>Lo que costó</b> — lo que pagaste por la máquina, con todo
+          y AMS. Mientras esté en 0 se respeta la tarifa vieja y no se calcula nada.<br>
+          <b>Horas de vida</b> — lo que esperas que dure. 5,000 a 8,000 h es razonable
+          con buen cuidado.<br>
+          <b>Watts</b> — consumo promedio durante una impresión, no el pico de arranque.
+          Los que trae son estimados: una con cámara y cama caliente gasta más que una
+          abierta.<br>
+          <b>Refacciones $/h</b> — boquillas, bandas, placas y demás, repartido por hora.<br>
+          El <b>$/kWh</b> está arriba, en Costos: sácalo de tu recibo de CFE dividiendo
+          el total a pagar entre los kWh consumidos. Así queda tu tarifa real.</p>
         </details>
       </div>
 

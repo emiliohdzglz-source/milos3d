@@ -31,8 +31,18 @@ const nombreAdmin = (n) => ADMINS.find(a => normNombre(a) === normNombre(n)) || 
 const DEFAULTS = {
   usuario: "",
   autolock: 5,
-  precioKg: 480,
-  tarifaHora: 20,
+  precioKg: 300,
+  tarifaHora: 20,          // sólo de respaldo: hoy la tarifa la calcula cada máquina
+  /* Lo que cuesta el kilowatt-hora, sacado del recibo de CFE de la casa
+     (Aguascalientes, tarifa 1, bimestre mayo–julio 2026): 2,724 kWh, de
+     los cuales 2,444 cayeron en EXCEDENTE a $4.004 + IVA = $4.645/kWh.
+
+     Se usa el precio del excedente, no el promedio del recibo ($4.315),
+     porque con tres minisplits y dos coches cargando en casa todos los
+     días cada kWh que suma una impresora se paga al precio más alto del
+     recibo, no al promedio. Si algún bimestre el consumo baja y ya no
+     hay excedente, se cambia aquí y toda la flota se recalcula sola. */
+  precioKwh: 4.65,
   tarifaMano: 150,
   merma: 10,
   margen: 120,
@@ -43,25 +53,44 @@ const DEFAULTS = {
   pagosURL: "",
   proxy: "https://r.jina.ai/",
   materiales: [
-    { nombre: "PLA", precioKg: 450 },
-    { nombre: "PLA Seda", precioKg: 620 },
-    { nombre: "PETG", precioKg: 540 },
-    { nombre: "TPU flexible", precioKg: 780 }
+    { nombre: "PLA", precioKg: 300 },
+    { nombre: "PLA Seda", precioKg: 420 },
+    { nombre: "PETG", precioKg: 360 },
+    { nombre: "TPU flexible", precioKg: 520 }
   ],
   /* Para proponer la fecha de entrega: cuántas horas de impresión caben
      en un día de verdad (no 24: hay que montar, despegar y dormir) y
      cuántos días de colchón se dejan antes de prometer. */
   horasDia: 10,
   colchonDias: 1,
-  /* La flota. Cada máquina cuesta distinto por hora: lo que pagaste por
-     ella entre su vida útil, más luz y mantenimiento. Los gramos y el
-     tiempo salen del rebanador de ESA máquina, así que la purga del AMS
-     ya viene contada ahí; lo que cambia aquí es nada más el costo/hora. */
+  /* La flota. El costo por hora YA NO SE TECLEA: sale de tres datos que
+     sí conoces —lo que pagaste por la máquina, las horas que esperas que
+     dure, y lo que gastas en refacciones— más la luz, que se calcula con
+     los watts y tu tarifa de CFE.
+
+       costo/hora = precio ÷ vidaHoras + (watts ÷ 1000 × precioKwh) + refacciones/hora
+
+     Los watts son un promedio estimado sobre una impresión completa, no
+     el pico de arranque: la cama y la cámara sólo jalan fuerte al
+     principio. Son editables, como todo lo demás.
+
+     Mientras `precio` sea 0 se respeta la `tarifaHora` que ya estaba
+     guardada: nadie quiere que se le muevan los precios solos. En cuanto
+     pongas lo que te costó la máquina, el costo empieza a calcularse.
+
+     Los precios de abajo son los de la flota real, convertidos a pesos
+     a $18.50 por dólar e incluyendo los 120 USD de envío de cada una:
+       X1C           1000 USD + 120 de envío = $20,720
+       P2S            799 USD + 120 de envío = $17,002
+       Snapmaker U1   849 USD + 120 de envío = $17,927
+       A1          $8,000 MXN + 120 de envío = $10,220
+     Si pagaste impuestos de importación además del envío, súmalos al
+     precio en Ajustes → Mis máquinas y el costo/hora se reacomoda. */
   maquinas: [
-    { nombre: "X1C", tarifaHora: 20 },
-    { nombre: "P2S", tarifaHora: 20 },
-    { nombre: "A1", tarifaHora: 20 },
-    { nombre: "Snapmaker U1", tarifaHora: 20 }
+    { nombre: "X1C", precio: 20720, vidaHoras: 6000, watts: 150, refaccionesHora: 1.5, tarifaHora: 20 },
+    { nombre: "P2S", precio: 17002, vidaHoras: 6000, watts: 140, refaccionesHora: 1.5, tarifaHora: 20 },
+    { nombre: "A1", precio: 10220, vidaHoras: 5000, watts: 110, refaccionesHora: 1.0, tarifaHora: 20 },
+    { nombre: "Snapmaker U1", precio: 17927, vidaHoras: 6000, watts: 150, refaccionesHora: 1.5, tarifaHora: 20 }
   ],
   gh: { owner: "emiliohdzglz-source", repo: "milos3d", branch: "main", token: "" },
   whatsapp: "524427831563"
@@ -96,6 +125,9 @@ const $ = (s) => document.querySelector(s);
 const $$ = (s) => [...document.querySelectorAll(s)];
 const num = (v) => { const n = parseFloat(v); return isNaN(n) ? 0 : n; };
 const money = (n) => "$" + Math.round(n).toLocaleString("es-MX");
+// Para cantidades chicas, donde redondear a pesos miente: el costo de luz
+// de una hora de impresión son centavos, y "$0 de luz" no dice nada.
+const centavos = (n) => "$" + num(n).toLocaleString("es-MX", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 
 function slug(s) {
@@ -145,7 +177,25 @@ function cargar() {
       if (!Array.isArray(d.ajustes?.maquinas) || !d.ajustes.maquinas.length) {
         DB.ajustes.maquinas = DEFAULTS.maquinas.map(m =>
           ({ ...m, tarifaHora: num(d.ajustes?.tarifaHora) || m.tarifaHora }));
+      } else {
+        // Flota de antes del desglose: se le agregan los campos nuevos.
+        //
+        // A las cuatro máquinas de la casa se les reconoce el nombre y se
+        // les pone lo que costaron, así el costo por hora se calcula solo
+        // sin que nadie teclee nada. Una máquina que no esté en la lista
+        // (una que se agregó a mano) se queda con precio 0 y conserva su
+        // tarifa: no se le inventa un precio de compra que no se conoce.
+        DB.ajustes.maquinas = DB.ajustes.maquinas.map(m => {
+          const conocida = DEFAULTS.maquinas.find(x => normNombre(x.nombre) === normNombre(m.nombre));
+          const base = conocida || { precio: 0, vidaHoras: 6000, watts: 120, refaccionesHora: 1.5 };
+          const fundida = { ...base, ...m };
+          // `precio` sólo se hereda cuando el panel todavía no tenía uno:
+          // si ya se corrigió a mano, ese número manda.
+          if (!num(m.precio)) fundida.precio = num(base.precio);
+          return fundida;
+        });
       }
+      if (!num(DB.ajustes.precioKwh)) DB.ajustes.precioKwh = DEFAULTS.precioKwh;
     }
   } catch (e) { console.error("No se pudo leer el guardado", e); }
 }
@@ -653,13 +703,18 @@ function calcular(f = form, a = DB.ajustes) {
   const precioKg = num(mat.precioKg) || num(a.precioKg);
   const piezas = Math.max(1, num(f.piezas) || 1);
 
-  const flota = a.maquinas?.length ? a.maquinas : DEFAULTS.maquinas;
-  const maq = flota[f.maquinaIdx] || flota[0];
-  const tarifaHora = num(maq?.tarifaHora) || num(a.tarifaHora);
+  const lista = a.maquinas?.length ? a.maquinas : DEFAULTS.maquinas;
+  const maq = lista[f.maquinaIdx] || lista[0];
+  const ch = costoHora(maq, a);
+  const tarifaHora = ch.total;
 
   const horasTotales = num(f.horas) + num(f.minutos) / 60;
   const material = (num(f.gramos) / 1000) * precioKg;
   const maquina = horasTotales * tarifaHora;
+  // La luz y el desgaste se separan para que el desglose diga de dónde
+  // sale cada peso, no nada más "impresora".
+  const luz = horasTotales * ch.luz;
+  const desgaste = horasTotales * (ch.deprecia + ch.refacciones);
   const mano = (num(f.mano) / 60) * num(a.tarifaMano);
   const extras = num(f.extras); // rodamientos, imanes, resortes… por pieza
 
@@ -675,14 +730,16 @@ function calcular(f = form, a = DB.ajustes) {
   const utilidad = precio - costoPieza;
   const margenReal = precio > 0 ? (utilidad / precio) * 100 : 0;
 
-  return { material, maquina, mano, extras, merma, costoTotal, costoPieza, precioSugerido, precio, utilidad, margenReal, piezas, precioKg, horasTotales, maquina_nombre: maq?.nombre || "", tarifaHora };
+  return { material, maquina, luz, desgaste, manual: ch.manual, mano, extras, merma, costoTotal, costoPieza, precioSugerido, precio, utilidad, margenReal, piezas, precioKg, horasTotales, maquina_nombre: maq?.nombre || "", tarifaHora };
 }
 
 function recalcular() {
   const c = calcular();
   $("#calc-breakdown").innerHTML = `
     <div class="bd-row"><span>Filamento (${num(form.gramos)} g × ${money(c.precioKg)}/kg)</span><b>${money(c.material)}</b></div>
-    <div class="bd-row"><span>${esc(c.maquina_nombre)} (${c.horasTotales.toFixed(2)} h × ${money(c.tarifaHora)}/h)</span><b>${money(c.maquina)}</b></div>
+    <div class="bd-row"><span>${esc(c.maquina_nombre)} (${c.horasTotales.toFixed(2)} h × ${centavos(c.tarifaHora)}/h)</span><b>${money(c.maquina)}</b></div>
+    ${!c.manual && c.maquina > 0 ? `<div class="bd-row sub"><span>· desgaste de la máquina</span><b>${money(c.desgaste)}</b></div>
+    <div class="bd-row sub"><span>· luz</span><b>${money(c.luz)}</b></div>` : ""}
     <div class="bd-row"><span>Armado (${num(form.mano)} min)</span><b>${money(c.mano)}</b></div>
     ${c.extras > 0 ? `<div class="bd-row"><span>Extras (rodamientos, etc.)${c.piezas > 1 ? ` × ${c.piezas}` : ""}</span><b>${money(c.extras * c.piezas)}</b></div>` : ""}
     <div class="bd-row"><span>Merma ${num(DB.ajustes.merma)}%</span><b>${money(c.merma)}</b></div>
@@ -708,10 +765,28 @@ function pintarMateriales() {
 
 function flota() { return DB.ajustes.maquinas?.length ? DB.ajustes.maquinas : DEFAULTS.maquinas; }
 
+/* Qué cuesta tener una máquina andando una hora, desglosado.
+   Si todavía no se captura lo que costó la máquina, se respeta la tarifa
+   que ya estaba puesta a mano y se marca como `manual` para que la
+   pantalla lo diga en vez de fingir un cálculo. */
+function costoHora(maq, a = DB.ajustes) {
+  const m = maq || {};
+  const precio = num(m.precio);
+  const vida = Math.max(1, num(m.vidaHoras) || 6000);
+  const luz = (num(m.watts) / 1000) * num(a.precioKwh);
+  const refacciones = num(m.refaccionesHora);
+
+  if (precio <= 0) {
+    return { total: num(m.tarifaHora) || num(a.tarifaHora), manual: true, deprecia: 0, luz, refacciones };
+  }
+  const deprecia = precio / vida;
+  return { total: deprecia + luz + refacciones, manual: false, deprecia, luz, refacciones };
+}
+
 function pintarMaquinas() {
   const f = flota();
   $("#f-maquina").innerHTML = f
-    .map((m, i) => `<option value="${i}">${esc(m.nombre)} — ${money(m.tarifaHora)}/h</option>`).join("");
+    .map((m, i) => `<option value="${i}">${esc(m.nombre)} — ${money(costoHora(m).total)}/h</option>`).join("");
   $("#f-maquina").value = String(Math.min(form.maquinaIdx || 0, f.length - 1));
 }
 
@@ -2442,6 +2517,7 @@ const AJ_CAMPOS = [
   ["s-precioKg", "precioKg", "num"], ["s-tarifaHora", "tarifaHora", "num"],
   ["s-tarifaMano", "tarifaMano", "num"], ["s-merma", "merma", "num"],
   ["s-margen", "margen", "num"], ["s-redondeo", "redondeo", "num"],
+  ["s-precioKwh", "precioKwh", "num"],
   ["s-horasDia", "horasDia", "num"], ["s-colchonDias", "colchonDias", "num"],
   ["s-anticipo", "anticipo", "num"], ["s-linkPago", "linkPago", "str"],
   ["s-datosPago", "datosPago", "str"], ["s-proxy", "proxy", "str"],
@@ -2525,20 +2601,43 @@ async function revisar2FA() {
 function pintarFlotaAjustes() {
   const cont = $("#s-maquinas");
   if (!cont) return;
-  cont.innerHTML = flota().map((m, i) => `
-    <div class="mini">
-      <span class="grow">${esc(m.nombre)}</span>
-      <input type="number" class="mini-num" data-maq-tarifa="${i}" value="${num(m.tarifaHora)}"
-             inputmode="decimal" min="0" aria-label="Costo por hora de ${esc(m.nombre)}">
-      <span class="dim">/h</span>
-      <button class="icon-btn" data-maq-del="${i}">✕</button>
-    </div>`).join("") || `<p class="hint">Agrega al menos una máquina.</p>`;
+  cont.innerHTML = flota().map((m, i) => {
+    const c = costoHora(m);
+    return `
+    <div class="maq">
+      <div class="maq-top">
+        <b class="grow">${esc(m.nombre)}</b>
+        <span class="maq-ph ${c.manual ? "pendiente" : ""}">${money(c.total)}/h</span>
+        <button class="icon-btn" data-maq-del="${i}">✕</button>
+      </div>
+      <div class="maq-campos">
+        <label>Lo que costó
+          <input type="number" inputmode="decimal" min="0" data-maq="precio" data-i="${i}"
+                 value="${num(m.precio) || ""}" placeholder="0">
+        </label>
+        <label>Horas de vida
+          <input type="number" inputmode="numeric" min="1" data-maq="vidaHoras" data-i="${i}"
+                 value="${num(m.vidaHoras) || 6000}">
+        </label>
+        <label>Watts
+          <input type="number" inputmode="numeric" min="0" data-maq="watts" data-i="${i}"
+                 value="${num(m.watts) || 0}">
+        </label>
+        <label>Refacciones $/h
+          <input type="number" inputmode="decimal" min="0" step="0.5" data-maq="refaccionesHora" data-i="${i}"
+                 value="${num(m.refaccionesHora) || 0}">
+        </label>
+      </div>
+      <p class="hint maq-cuenta">${c.manual
+        ? `Tarifa puesta a mano: <b>${centavos(c.total)}/h</b>. Pon lo que te costó la máquina y la calculo sola.`
+        : `${centavos(c.deprecia)} de desgaste + ${centavos(c.luz)} de luz + ${centavos(c.refacciones)} de refacciones = <b>${centavos(c.total)}/h</b>`}</p>
+    </div>`;
+  }).join("") || `<p class="hint">Agrega al menos una máquina.</p>`;
 
-  $$("#s-maquinas [data-maq-tarifa]").forEach(el => el.addEventListener("change", () => {
-    const i = +el.dataset.maqTarifa;
-    DB.ajustes.maquinas[i].tarifaHora = num(el.value);
-    guardar(); pintarMaquinas(); recalcular();
-    toast(`${DB.ajustes.maquinas[i].nombre}: ${money(num(el.value))}/h`);
+  $$("#s-maquinas [data-maq]").forEach(el => el.addEventListener("change", () => {
+    const i = +el.dataset.i;
+    DB.ajustes.maquinas[i][el.dataset.maq] = num(el.value);
+    guardar(); pintarFlotaAjustes(); pintarMaquinas(); recalcular();
   }));
   $$("#s-maquinas [data-maq-del]").forEach(b => b.addEventListener("click", () => {
     if (flota().length <= 1) return toast("Tiene que quedar al menos una máquina");
@@ -2710,11 +2809,19 @@ function arrancar() {
     if (el.type === "file") return;
     el.addEventListener("change", leerAjustes);
   });
+  // El precio del kWh mueve el costo de TODAS las máquinas: hay que
+  // volver a dibujar la flota para que se vea al momento.
+  $("#s-precioKwh")?.addEventListener("change", () => {
+    pintarFlotaAjustes(); pintarMaquinas(); recalcular();
+  });
   $("#s-maq-add").addEventListener("click", () => {
     const nom = $("#s-maq-nombre").value.trim(), t = num($("#s-maq-tarifa").value);
     if (!nom || !t) return toast("Pon nombre y costo por hora");
     if (!Array.isArray(DB.ajustes.maquinas)) DB.ajustes.maquinas = [];
-    DB.ajustes.maquinas.push({ nombre: nom.slice(0, 24), tarifaHora: t });
+    DB.ajustes.maquinas.push({
+      nombre: nom.slice(0, 24), precio: 0, vidaHoras: 6000,
+      watts: 120, refaccionesHora: 1.5, tarifaHora: t
+    });
     $("#s-maq-nombre").value = ""; $("#s-maq-tarifa").value = "";
     guardar(); pintarFlotaAjustes(); pintarMaquinas();
   });

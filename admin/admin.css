@@ -282,6 +282,22 @@ textarea { resize: vertical; line-height: 1.45; }
 .mini .mini-num { width: 78px; margin: 0; padding: 7px 9px; font-size: 15px; text-align: right; }
 .mini .dim { color: var(--dim); font-size: 13px; margin-left: -6px; }
 
+/* ---------- Ficha de máquina en Ajustes ---------- */
+.maq {
+  background: rgba(4,8,20,.5); border: 1px solid var(--border);
+  border-radius: 12px; padding: 11px 13px; margin-bottom: 9px;
+}
+.maq-top { display: flex; align-items: center; gap: 9px; }
+.maq-ph { font-family: var(--font-display); font-size: 16px; color: var(--cyan); }
+/* Tarifa todavía a mano: se marca para que no se confunda con una calculada. */
+.maq-ph.pendiente { color: var(--warn); }
+.maq-campos { display: grid; grid-template-columns: 1fr 1fr; gap: 0 10px; margin-top: 8px; }
+.maq-campos label { font-size: 12px; color: var(--dim); margin: 6px 0 0; }
+.maq-campos input { margin-top: 3px; padding: 9px 10px; font-size: 15px; }
+.maq-cuenta { margin-top: 9px; }
+/* Renglones del desglose que explican el de arriba. */
+.bd-row.sub { font-size: 13px; color: var(--dim); padding-left: 10px; }
+
 /* ---------- Segmentos ---------- */
 .seg { display: flex; gap: 7px; overflow-x: auto; margin-bottom: 14px; padding-bottom: 4px; scrollbar-width: none; }
 .seg::-webkit-scrollbar { display: none; }
