@@ -1688,6 +1688,63 @@ async function publicarInventario() {
 }
 
 /* ==========================================================
+   VENTAS DE LA TIENDA
+   ----------------------------------------------------------
+   Una venta que entra sola por milos3d.com no la captura nadie:
+   el cliente paga y ya. Si no se asoma aquí, se queda invisible
+   hasta que el cliente reclame. Esto la trae y la vuelve pedido
+   de un toque.
+   ========================================================== */
+const ESTADO_PAGO = {
+  approved: "pagado", pending: "pendiente", in_process: "en revisión",
+  rejected: "rechazado", refunded: "devuelto", cancelled: "cancelado"
+};
+
+async function pintarVentas() {
+  const caja = $("#ped-ventas");
+  if (!caja) return;
+  if (!tallerListo()) { caja.hidden = true; return; }
+  try {
+    const d = await tallerPedir(`/ventas?clave=${encodeURIComponent(tallerClave())}`);
+    // Las que ya se volvieron pedido no se vuelven a ofrecer.
+    const yaSon = new Set(DB.pedidos.map(p => p.ventaFolio).filter(Boolean));
+    const nuevas = (d.ventas || []).filter(v => !yaSon.has(v.folio) && v.estado !== "cancelled");
+    if (!nuevas.length) { caja.hidden = true; return; }
+
+    caja.hidden = false;
+    caja.innerHTML = `<h3 class="ventas-tit">🛒 Ventas de la tienda · ${nuevas.length}</h3>` +
+      nuevas.slice(0, 8).map(v => `
+        <div class="venta">
+          <div class="venta-top">
+            <b>${esc(v.cliente || "Sin nombre")}</b>
+            <span class="badge ${v.estado === "approved" ? "listo" : "recibido"}">${esc(ESTADO_PAGO[v.estado] || v.estado)}</span>
+          </div>
+          <div class="venta-det">${(v.items || []).map(i => `${num(i.q)}× ${esc(i.n)}`).join(", ") || "—"}</div>
+          <div class="venta-det">
+            <b>${money(v.monto)}</b> · ${esc(v.folio)}${v.tel ? ` · ${esc(v.tel)}` : ""}
+          </div>
+          <button class="btn btn-ghost btn-block" data-venta="${esc(v.folio)}">➕ Convertir en pedido</button>
+        </div>`).join("");
+
+    caja.querySelectorAll("[data-venta]").forEach(b => b.addEventListener("click", () => {
+      const v = nuevas.find(x => x.folio === b.dataset.venta);
+      if (!v) return;
+      const p = nuevoPedido({
+        cliente: v.cliente || "", tel: v.tel || "",
+        descripcion: (v.items || []).map(i => `${num(i.q)}× ${i.n}`).join(", "),
+        total: num(v.monto), ventaFolio: v.folio
+      });
+      renderPedidos();
+      toast(`Pedido ${p.folio} creado`);
+      setTimeout(() => menuPedido(p.id), 300);
+    }));
+  } catch (e) {
+    caja.hidden = false;
+    caja.innerHTML = `<p class="hint">No pude leer las ventas: ${esc(e.message)}</p>`;
+  }
+}
+
+/* ==========================================================
    TALLER — mandar a imprimir desde el panel
    ----------------------------------------------------------
    El panel no le habla a la impresora: le deja el recado al
@@ -1874,6 +1931,7 @@ function renderPedidos() {
     <div class="tot"><span>En cola</span><strong>${horasCola.toFixed(1)} h</strong></div>
     <div class="tot"><span>Atrasados</span><strong class="${tarde ? "alerta" : ""}">${tarde}</strong></div>`;
 
+  pintarVentas();
   pintarTaller();
 
   const cont = $("#ped-list");
@@ -2677,8 +2735,8 @@ function arrancar() {
       const d = await tallerPedir(`/taller/trabajos?clave=${encodeURIComponent(tallerClave())}`);
       const m = d.maquinas || [];
       msg.textContent = m.length
-        ? `✅ Conectado. El puente reporta: ${m.map(x => x.maquina).join(", ")}.`
-        : "✅ Clave correcta, pero el puente todavía no reporta ninguna máquina. ¿Ya lo arrancaste en casa?";
+        ? `✅ Conectado. Ya puedes ver las ventas de la tienda, y el puente reporta: ${m.map(x => x.maquina).join(", ")}.`
+        : "✅ Clave correcta. Ya puedes ver las ventas de la tienda. El puente todavía no reporta ninguna máquina (eso es aparte).";
     } catch (e) { msg.textContent = "❌ " + e.message; }
   });
   $("#s-test").addEventListener("click", async () => { leerAjustes(); await probarConexion(); });

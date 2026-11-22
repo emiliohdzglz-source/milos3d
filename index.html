@@ -168,7 +168,22 @@
     <div class="cart-foot">
       <div class="cart-total-row"><span>Total</span><strong id="cart-total">$0 MXN</strong></div>
       <p class="cart-note" id="cart-promo-note"></p>
-      <button class="btn btn-primary btn-block" id="cart-checkout" data-hover>
+      <!-- Pago con tarjeta: sólo aparece si la tienda tiene servicio de cobro
+           configurado. Si no, queda el camino de siempre por WhatsApp. -->
+      <div id="cart-pago" hidden>
+        <label class="cart-campo">Tu nombre
+          <input type="text" id="cart-nombre" autocomplete="name" placeholder="Para saber de quién es el pedido">
+        </label>
+        <label class="cart-campo">Tu WhatsApp
+          <input type="tel" id="cart-tel" inputmode="tel" autocomplete="tel" placeholder="442 123 4567">
+        </label>
+        <button class="btn btn-primary btn-block" id="cart-pagar" data-hover>
+          💳 Pagar con tarjeta →
+        </button>
+        <p class="cart-note" id="cart-pago-msg"></p>
+        <p class="cart-o"><span>o</span></p>
+      </div>
+      <button class="btn btn-ghost btn-block" id="cart-checkout" data-hover>
         Completar pedido por WhatsApp →
       </button>
       <p class="cart-note">Al enviar, se abre WhatsApp con tu pedido ya escrito. Confirmamos pago y envío por ahí.</p>

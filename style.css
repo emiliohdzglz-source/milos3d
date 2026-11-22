@@ -976,3 +976,27 @@ a.product-img { display: grid; }
   line-height: 1.35;
   color: #ffb020;
 }
+
+/* ---------- Pago con tarjeta en el carrito ---------- */
+.cart-campo { display: block; font-size: 14px; color: #8a97ad; margin: 10px 0 0; text-align: left; }
+.cart-campo input {
+  display: block; width: 100%; box-sizing: border-box; margin-top: 4px;
+  background: rgba(4, 6, 14, .7); border: 1px solid rgba(76, 201, 255, .22);
+  color: #e8eefc; font-family: 'Rajdhani', sans-serif; font-size: 16px;
+  padding: 11px 12px; border-radius: 10px;
+}
+.cart-campo input:focus {
+  outline: none; border-color: #4cc9ff; box-shadow: 0 0 0 3px rgba(76, 201, 255, .14);
+}
+#cart-pagar { margin-top: 12px; }
+/* Separador entre pagar y pedir por WhatsApp: deja claro que son dos
+   caminos distintos y no dos pasos del mismo. */
+.cart-o {
+  position: relative; text-align: center; margin: 16px 0 12px;
+  font-size: 13px; color: #8a97ad;
+}
+.cart-o::before, .cart-o::after {
+  content: ""; position: absolute; top: 50%; width: 40%; height: 1px;
+  background: rgba(76, 201, 255, .18);
+}
+.cart-o::before { left: 0; } .cart-o::after { right: 0; }

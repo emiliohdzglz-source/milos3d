@@ -38,7 +38,7 @@ dash.cloudflare.com → **Compute (Workers)** → `milos3d-pagos` → **Settings
 | `MP_WEBHOOK_SECRET` | Clave del webhook de Mercado Pago | El cobro funciona, pero el botón "¿ya pagó?" no se entera solo |
 | `GH_TOKEN` | Token de GitHub que publica en el sitio | No hay verificación de 2 pasos |
 | `TOTP_ALE`, `TOTP_EMILIOPAPA`, `TOTP_MILO` | Semilla del autenticador de cada quien | Esa persona no puede recibir el token |
-| `TALLER_CLAVE` | Clave de la cola de impresión (ver `taller/README.md`) | No se puede mandar a imprimir desde el panel |
+| `TALLER_CLAVE` | Clave del panel: ver las ventas de la tienda y mandar a imprimir | El panel no ve las ventas directas ni puede encolar impresiones |
 
 Después de agregar o cambiar una clave, Cloudflare vuelve a publicar el
 servicio solo. No hace falta tocar nada más.
