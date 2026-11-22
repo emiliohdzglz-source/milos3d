@@ -148,9 +148,9 @@
     },
     {
       "id": "ball-12-sides-fidget-clicker",
-      "nombre": "Ball 12 Sides Fidget Clicker",
-      "descripcion": "Ball 12 Sides Fidget Clicker: el antiestrés que no vas a querer soltar. Cada clic relaja, entretiene y ayuda a la concentración — perfecto para la escuela, la oficina o para traer en el bolsillo. Fabricado en PLA premium con impresión de precisión — cada pieza toma 4 h 5 min de máquina y se imprime al momento de tu pedido. Disponible en 2 colores: pídelo en tu combinación favorita. Hecho en México 🇲🇽 por MILO'S 3D. Pídelo hoy por WhatsApp y lo imprimimos para ti.",
-      "precio": 280,
+      "nombre": "Bola clicker antiestrés ",
+      "descripcion": "Bola clicker antiestrés: el antiestrés que no vas a querer soltar. Cada clic relaja, entretiene y ayuda a la concentración — perfecto para la escuela, la oficina o para traer en el bolsillo. Fabricado en PLA premium con impresión de precisión. Disponible en 11 colores: pídelo en tu combinación favorita. Hecho en México 🇲🇽 por MILO'S 3D. Pídelo hoy por WhatsApp y lo imprimimos para ti.",
+      "precio": 64,
       "imagen": "images/ball-12-sides-fidget-clicker.jpg",
       "badge": "",
       "colores": [
@@ -164,9 +164,14 @@
         "#8e6bc8",
         "#ff7a2f",
         "#c0c8d8",
-        "#f2f2f2"
+        "#f2f2f2",
+        "#4cc9ff"
       ],
-      "etiquetas": [],
+      "etiquetas": [
+        "Anti-estres",
+        "12 lados",
+        "clicker"
+      ],
       "visible": true
     },
     {
