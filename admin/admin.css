@@ -533,3 +533,10 @@ textarea { resize: vertical; line-height: 1.45; }
   width: 100%; box-sizing: border-box; font-family: ui-monospace, Menlo, monospace;
   font-size: 13px; white-space: pre; overflow-x: auto;
 }
+
+/* Filamento, bitácora y corte del día. */
+.mini small { display: block; font-size: 12px; opacity: .6; margin-top: 2px; }
+.fil-bajo { border-left: 3px solid var(--warn, #ffb020); }
+.tot .alerta { color: #ffb020; }
+.check { display: flex; align-items: center; gap: 9px; margin: 10px 0; }
+.check input { width: auto; }

@@ -279,6 +279,70 @@ BABY BLUE	10	0	39	17"></textarea>
       </details>
 
       <button class="btn btn-primary btn-block" id="inv-publicar">📤 Publicar inventario al sitio</button>
+
+      <!-- ---------- Bitácora de impresiones ---------- -->
+      <div class="card">
+        <h3 class="card-title">🖨️ Lo que se imprimió</h3>
+        <p class="hint">Anota la tanda y <b>se suma sola al inventario de arriba</b>.
+          No lo captures en los dos lados: se descuadra.</p>
+        <div class="grid2">
+          <label>Día
+            <input type="date" id="imp-fecha">
+          </label>
+          <label>Color
+            <input type="text" id="imp-color" list="imp-colores" placeholder="Marine Blue">
+            <datalist id="imp-colores"></datalist>
+          </label>
+          <label>Máquina
+            <select id="imp-maquina"></select>
+          </label>
+          <label>Gramos usados (opcional)
+            <input type="number" id="imp-gramos" inputmode="decimal" min="0" placeholder="0">
+          </label>
+        </div>
+        <div class="grid2" id="imp-piezas"></div>
+        <label>Nota (opcional)
+          <input type="text" id="imp-nota" placeholder="salió con la boquilla de alto flujo">
+        </label>
+        <button class="btn btn-primary btn-block" id="imp-guardar">Guardar la tanda</button>
+        <p class="hint" id="imp-msg"></p>
+        <div id="imp-lista" class="list-mini"></div>
+      </div>
+
+      <!-- ---------- Filamento ---------- -->
+      <div class="card">
+        <h3 class="card-title">🧵 Filamento en casa</h3>
+        <p class="hint">Lo que <b>queda</b>, no lo que compraste. Si pones los gramos
+          de una tanda arriba, se descuentan solos de la bobina de ese color.</p>
+        <div class="totals" id="fil-totales"></div>
+        <div id="fil-lista" class="list-mini"></div>
+        <div class="grid2">
+          <label>Marca
+            <input type="text" id="fil-marca" value="Bambu">
+          </label>
+          <label>Tipo
+            <input type="text" id="fil-tipo" value="PLA Basic">
+          </label>
+          <label>Color
+            <input type="text" id="fil-color" placeholder="Marine Blue">
+          </label>
+          <label>Kg que quedan
+            <input type="number" id="fil-kg" inputmode="decimal" min="0" step="0.1" placeholder="1">
+          </label>
+        </div>
+        <button class="btn btn-ghost btn-block" id="fil-add">+ Agregar bobina</button>
+        <details class="inv-import">
+          <summary>📋 Pegar la lista de filamento</summary>
+          <p class="hint">Una bobina por línea: <b>Marca · Tipo · Color · kg</b>.
+            Separado por tabuladores, comas o barras. Si sólo pones tres columnas,
+            se asume Bambu.</p>
+          <textarea id="fil-pegar" rows="5" placeholder="Bambu, PLA Basic, Marine Blue, 0.8
+Bambu, PLA Matte, Caramel, 1
+Bambu, PLA Basic, Yellow, 0.4"></textarea>
+          <button class="btn btn-ghost btn-block" id="fil-pegar-go">Leer lo pegado</button>
+          <p class="hint" id="fil-pegar-msg"></p>
+        </details>
+      </div>
     </section>
 
     <!-- ---------- PEDIDOS ---------- -->
@@ -296,6 +360,42 @@ BABY BLUE	10	0	39	17"></textarea>
       <div id="ped-ventas" class="ventas" hidden></div>
       <div id="ped-taller" class="taller" hidden></div>
       <div id="ped-list" class="list"></div>
+
+      <!-- ---------- Corte del día ---------- -->
+      <div class="card">
+        <h3 class="card-title">💵 Ventas del día</h3>
+        <p class="hint">Lo que se vendió en persona o por WhatsApp, que la tienda no
+          sabe. Si no se anota aquí, no existe en ningún corte.</p>
+        <label>Día
+          <input type="date" id="vl-fecha">
+        </label>
+        <div id="vl-corte" class="totals"></div>
+        <div id="vl-lista" class="list-mini"></div>
+        <div class="grid2">
+          <label>Qué se vendió
+            <input type="text" id="vl-concepto" placeholder="6 clickers rosa fosfo">
+          </label>
+          <label>Monto $
+            <input type="number" id="vl-monto" inputmode="decimal" min="0" placeholder="0">
+          </label>
+          <label>Cliente (opcional)
+            <input type="text" id="vl-cliente" placeholder="Nombre">
+          </label>
+          <label>Cómo entró
+            <select id="vl-canal">
+              <option value="mostrador">En persona</option>
+              <option value="whatsapp">WhatsApp</option>
+              <option value="feria">Feria / evento</option>
+              <option value="otro">Otro</option>
+            </select>
+          </label>
+        </div>
+        <label class="check">
+          <input type="checkbox" id="vl-pagado" checked> Ya me pagaron
+        </label>
+        <button class="btn btn-primary btn-block" id="vl-guardar">Anotar la venta</button>
+        <p class="hint" id="vl-msg"></p>
+      </div>
     </section>
 
     <!-- ---------- AJUSTES ---------- -->
