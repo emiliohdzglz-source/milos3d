@@ -85,7 +85,7 @@ let temporizadorLock = null;
 function nuevoForm() {
   return {
     id: null, nombre: "", descripcion: "", link: "", imagen: "", imagenPath: "",
-    gramos: 0, piezas: 1, horas: 0, minutos: 0, mano: 0, materialIdx: 0, maquinaIdx: 0,
+    gramos: 0, piezas: 1, horas: 0, minutos: 0, mano: 0, extras: 0, materialIdx: 0, maquinaIdx: 0,
     colores: [], etiquetas: "", badge: "", precioManual: null,
     creadoPor: "", costosPor: "", publicadoPor: ""
   };
@@ -661,8 +661,9 @@ function calcular(f = form, a = DB.ajustes) {
   const material = (num(f.gramos) / 1000) * precioKg;
   const maquina = horasTotales * tarifaHora;
   const mano = (num(f.mano) / 60) * num(a.tarifaMano);
+  const extras = num(f.extras); // rodamientos, imanes, resortes… por pieza
 
-  const directo = material + maquina + mano;
+  const directo = material + maquina + mano + extras * piezas;
   const merma = directo * (num(a.merma) / 100);
   const costoTotal = directo + merma;
   const costoPieza = costoTotal / piezas;
@@ -674,7 +675,7 @@ function calcular(f = form, a = DB.ajustes) {
   const utilidad = precio - costoPieza;
   const margenReal = precio > 0 ? (utilidad / precio) * 100 : 0;
 
-  return { material, maquina, mano, merma, costoTotal, costoPieza, precioSugerido, precio, utilidad, margenReal, piezas, precioKg, horasTotales, maquina_nombre: maq?.nombre || "", tarifaHora };
+  return { material, maquina, mano, extras, merma, costoTotal, costoPieza, precioSugerido, precio, utilidad, margenReal, piezas, precioKg, horasTotales, maquina_nombre: maq?.nombre || "", tarifaHora };
 }
 
 function recalcular() {
@@ -683,6 +684,7 @@ function recalcular() {
     <div class="bd-row"><span>Filamento (${num(form.gramos)} g × ${money(c.precioKg)}/kg)</span><b>${money(c.material)}</b></div>
     <div class="bd-row"><span>${esc(c.maquina_nombre)} (${c.horasTotales.toFixed(2)} h × ${money(c.tarifaHora)}/h)</span><b>${money(c.maquina)}</b></div>
     <div class="bd-row"><span>Armado (${num(form.mano)} min)</span><b>${money(c.mano)}</b></div>
+    ${c.extras > 0 ? `<div class="bd-row"><span>Extras (rodamientos, etc.)${c.piezas > 1 ? ` × ${c.piezas}` : ""}</span><b>${money(c.extras * c.piezas)}</b></div>` : ""}
     <div class="bd-row"><span>Merma ${num(DB.ajustes.merma)}%</span><b>${money(c.merma)}</b></div>
     <div class="bd-row total"><span>Costo${c.piezas > 1 ? ` de ${c.piezas} piezas` : ""}</span><b>${money(c.costoTotal)}</b></div>
     ${c.piezas > 1 ? `<div class="bd-row"><span>Costo por pieza</span><b>${money(c.costoPieza)}</b></div>` : ""}
@@ -735,6 +737,7 @@ function leerForm() {
   form.horas = num($("#f-horas").value);
   form.minutos = num($("#f-min").value);
   form.mano = num($("#f-mano").value);
+  form.extras = num($("#f-extras").value);
   form.materialIdx = num($("#f-material").value);
   form.maquinaIdx = num($("#f-maquina").value);
   form.etiquetas = $("#f-tags").value;
@@ -752,6 +755,7 @@ function pintarForm() {
   $("#f-horas").value = form.horas || 0;
   $("#f-min").value = form.minutos || 0;
   $("#f-mano").value = form.mano || 0;
+  $("#f-extras").value = form.extras || 0;
   $("#f-tags").value = form.etiquetas;
   $("#f-badge").value = form.badge;
   $("#f-precio").value = form.precioManual ?? "";
@@ -1294,7 +1298,7 @@ async function publicar() {
    ========================================================== */
 const CAMPOS_BORRADOR = [
   "id", "nombre", "descripcion", "link", "imagenPath", "gramos", "piezas",
-  "horas", "minutos", "mano", "colores", "etiquetas", "badge",
+  "horas", "minutos", "mano", "extras", "colores", "etiquetas", "badge",
   "creadoPor", "costosPor", "actualizado"
 ];
 
@@ -2591,7 +2595,7 @@ function arrancar() {
   });
 
   // Cálculo en vivo
-  ["f-gramos", "f-piezas", "f-horas", "f-min", "f-mano", "f-material", "f-precio"].forEach(id =>
+  ["f-gramos", "f-piezas", "f-horas", "f-min", "f-mano", "f-extras", "f-material", "f-precio"].forEach(id =>
     $("#" + id).addEventListener("input", () => { leerForm(); recalcular(); }));
   $("#f-material").addEventListener("change", () => { leerForm(); recalcular(); });
   $("#f-maquina").addEventListener("change", () => { leerForm(); recalcular(); });
