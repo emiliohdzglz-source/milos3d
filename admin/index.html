@@ -264,6 +264,7 @@
         <button class="seg-btn" data-f="todos">Todos</button>
       </div>
       <div class="totals" id="ped-totales"></div>
+      <div id="ped-taller" class="taller" hidden></div>
       <div id="ped-list" class="list"></div>
     </section>
 
@@ -339,6 +340,13 @@
         </label>
         <button class="btn btn-ghost btn-block" id="s-pagos-test">🔌 Probar servicio</button>
         <p class="hint" id="s-pagos-msg"></p>
+        <label>Clave del taller
+          <input type="password" id="s-taller-clave" autocomplete="off" autocapitalize="off" placeholder="la misma que el puente de casa">
+        </label>
+        <button class="btn btn-ghost btn-block" id="s-taller-test">🖨️ Probar el taller</button>
+        <p class="hint" id="s-taller-msg"></p>
+        <p class="hint">Con esto puedes mandar un pedido a imprimir desde el panel.
+          Necesita el puente corriendo en casa (ver <code>taller/README.md</code>).</p>
         <p class="hint">Con esto, el cliente paga con tarjeta desde la cotización.
           <b>Tu contraseña de Mercado Pago nunca se escribe aquí</b> — vive en el servicio de pagos.
           Mientras no lo conectes, todo sigue funcionando con transferencia y efectivo.</p>

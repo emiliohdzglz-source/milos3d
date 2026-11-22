@@ -1684,6 +1684,103 @@ async function publicarInventario() {
 }
 
 /* ==========================================================
+   TALLER — mandar a imprimir desde el panel
+   ----------------------------------------------------------
+   El panel no le habla a la impresora: le deja el recado al
+   servicio, y el puente que corre en la casa lo recoge. Por eso
+   mandar a imprimir funciona desde cualquier lado, sin estar en
+   la misma red que la máquina.
+   ========================================================== */
+const tallerClave = () => SECRETOS.tallerClave || "";
+const tallerListo = () => !!(pagosBase() && tallerClave());
+
+async function tallerPedir(ruta, opciones = {}) {
+  const base = pagosBase();
+  if (!base) throw new Error("Falta la dirección del servicio.");
+  const r = await fetch(base + ruta, opciones);
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(j.error || `El servicio respondió ${r.status}`);
+  return j;
+}
+
+async function mandarAImprimir(idPedido) {
+  if (!tallerListo()) return toast("Falta configurar el taller en Ajustes");
+  const p = pedidoPorId(idPedido);
+  const maq = flota()[p?.maquinaIdx || 0];
+  if (!maq) return toast("Ese pedido no tiene máquina");
+
+  /* Un trabajo para una máquina que ningún puente atiende se queda
+     esperando para siempre. Más vale avisar antes que dejarlo colgado:
+     hoy sólo la Snapmaker U1 habla el protocolo que entiende el puente. */
+  try {
+    const d = await tallerPedir(`/taller/trabajos?clave=${encodeURIComponent(tallerClave())}`);
+    const atendidas = (d.maquinas || []).map(m => m.maquina);
+    if (atendidas.length && !atendidas.includes(maq.nombre)) {
+      if (!confirm(`El puente no atiende «${maq.nombre}».\n\nAtiende: ${atendidas.join(", ")}.\n\n` +
+                   `Si lo mandas, el trabajo se va a quedar esperando. ¿Mandarlo de todos modos?`)) return;
+    }
+  } catch (e) { /* si no se puede consultar, se deja intentar igual */ }
+
+  const archivo = prompt(
+    `Archivo ya rebanado para ${maq.nombre}\n(tal como se llama en la carpeta del puente)`,
+    p?.archivo || "");
+  if (archivo === null) return;
+  const limpio = archivo.trim();
+  if (!limpio) return;
+
+  busy("Mandando a la cola…");
+  try {
+    await tallerPedir("/taller/encolar", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        clave: tallerClave(), maquina: maq.nombre,
+        archivo: limpio, pedido: p.folio, quien: yo()
+      })
+    });
+    if (p) { p.archivo = limpio; guardar(); }
+    unbusy();
+    toast(`En cola para ${maq.nombre}`);
+    renderPedidos();
+  } catch (e) {
+    unbusy();
+    toast(e.message);
+  }
+}
+
+/* El renglón de arriba en Pedidos: qué están haciendo las máquinas
+   y qué hay en la cola. Si el taller no está configurado, ni se
+   asoma: no tiene caso enseñar una sección vacía. */
+async function pintarTaller() {
+  const caja = $("#ped-taller");
+  if (!caja) return;
+  if (!tallerListo()) { caja.hidden = true; return; }
+  caja.hidden = false;
+  try {
+    const d = await tallerPedir(`/taller/trabajos?clave=${encodeURIComponent(tallerClave())}`);
+    const activos = (d.trabajos || []).filter(t => t.estado !== "terminado");
+    const comoVa = {
+      printing: "imprimiendo", standby: "libre", paused: "en pausa",
+      complete: "terminó", error: "con error", sin_contacto: "sin contacto"
+    };
+    caja.innerHTML = `
+      <div class="taller-maqs">${(d.maquinas || []).map(m => `
+        <div class="taller-maq">
+          <b>${esc(m.maquina)}</b>
+          <span class="${m.estado === "sin_contacto" || m.estado === "error" ? "alerta" : ""}">
+            ${esc(comoVa[m.estado] || m.estado)}${m.estado === "printing" ? ` ${num(m.avance)}%` : ""}</span>
+        </div>`).join("") || `<p class="hint">El puente todavía no reporta ninguna máquina.</p>`}
+      </div>
+      ${activos.length ? `<div class="taller-cola">${activos.slice(0, 6).map(t => `
+        <div class="taller-job"><span class="badge ${t.estado}">${esc(t.estado)}</span>
+        ${esc(t.archivo)} <span class="muted small">${esc(t.maquina)}${t.pedido ? " · " + esc(t.pedido) : ""}</span>
+        ${t.detalle ? `<small class="dim">${esc(t.detalle)}</small>` : ""}</div>`).join("")}</div>` : ""}`;
+  } catch (e) {
+    caja.innerHTML = `<p class="hint">No pude leer el taller: ${esc(e.message)}</p>`;
+  }
+}
+
+/* ==========================================================
    PEDIDOS
    ----------------------------------------------------------
    Lo que pasa DESPUÉS de que el cliente dijo que sí. Un pedido
@@ -1773,6 +1870,8 @@ function renderPedidos() {
     <div class="tot"><span>En cola</span><strong>${horasCola.toFixed(1)} h</strong></div>
     <div class="tot"><span>Atrasados</span><strong class="${tarde ? "alerta" : ""}">${tarde}</strong></div>`;
 
+  pintarTaller();
+
   const cont = $("#ped-list");
   if (!lista.length) {
     cont.innerHTML = `<div class="empty">Sin pedidos aquí.</div>`;
@@ -1839,6 +1938,7 @@ function menuPedido(id) {
     ${siguiente ? `<button class="btn btn-ghost btn-block" id="pd-avanzar">➡️ Pasar a «${NOMBRE_ESTADO[siguiente]}»</button>` : ""}
     ${p.estado === "listo" || p.estado === "entregado"
       ? `<button class="btn btn-ghost btn-block" id="pd-avisar">💬 Avisar al cliente por WhatsApp</button>` : ""}
+    ${tallerListo() ? `<button class="btn btn-ghost btn-block" id="pd-imprimir">🖨️ Mandar a imprimir</button>` : ""}
     <button class="btn btn-ghost btn-block" id="pd-cancelar">🚫 Cancelar pedido</button>
     <button class="btn btn-danger btn-block" id="pd-borrar">🗑️ Borrar</button>
     ${p.historial?.length > 1 ? `<details class="det"><summary>Historial</summary>${
@@ -1876,6 +1976,8 @@ function menuPedido(id) {
   if (siguiente) $("#pd-avanzar").addEventListener("click", () => {
     leer(); avanzarPedido(id);
   });
+  const imprimir = $("#pd-imprimir");
+  if (imprimir) imprimir.addEventListener("click", () => { leer(); guardar(); cerrarHoja(); mandarAImprimir(id); });
   const avisar = $("#pd-avisar");
   if (avisar) avisar.addEventListener("click", () => { leer(); guardar(); cerrarHoja(); avisarPedido(id); });
   $("#pd-cancelar").addEventListener("click", () => {
@@ -2290,6 +2392,7 @@ function pintarAjustes() {
   $("#s-repo").value = gh().repo || "";
   $("#s-branch").value = gh().branch || "main";
   $("#s-token").value = SECRETOS.ghToken || "";
+  $("#s-taller-clave").value = SECRETOS.tallerClave || "";
   $("#s-usuario").value = nombreAdmin(DB.ajustes.usuario);
   $("#s-autolock").value = String(DB.ajustes.autolock ?? 5);
   pintarMaterialesAjustes();
@@ -2409,6 +2512,11 @@ function leerAjustes() {
   if (tok && tok !== SECRETOS.ghToken) {
     SECRETOS.ghToken = tok;
     guardarSecretos();          // se guarda CIFRADO con tu contraseña
+  }
+  const tc = $("#s-taller-clave").value.trim();
+  if (tc && tc !== SECRETOS.tallerClave) {
+    SECRETOS.tallerClave = tc;  // también cifrada: abre la cola de impresión
+    guardarSecretos();
   }
   DB.ajustes.autolock = Number($("#s-autolock").value);
   guardar();
@@ -2554,6 +2662,20 @@ function arrancar() {
     DB.ajustes.materiales.push({ nombre: n, precioKg: p });
     $("#s-mat-nombre").value = ""; $("#s-mat-precio").value = "";
     guardar(); pintarMaterialesAjustes(); pintarMateriales();
+  });
+  $("#s-taller-test").addEventListener("click", async () => {
+    leerAjustes();
+    const msg = $("#s-taller-msg");
+    if (!pagosBase()) { msg.textContent = "Primero pon la dirección del servicio, arriba."; return; }
+    if (!tallerClave()) { msg.textContent = "Falta la clave del taller."; return; }
+    msg.textContent = "Probando…";
+    try {
+      const d = await tallerPedir(`/taller/trabajos?clave=${encodeURIComponent(tallerClave())}`);
+      const m = d.maquinas || [];
+      msg.textContent = m.length
+        ? `✅ Conectado. El puente reporta: ${m.map(x => x.maquina).join(", ")}.`
+        : "✅ Clave correcta, pero el puente todavía no reporta ninguna máquina. ¿Ya lo arrancaste en casa?";
+    } catch (e) { msg.textContent = "❌ " + e.message; }
   });
   $("#s-test").addEventListener("click", async () => { leerAjustes(); await probarConexion(); });
   $("#s-pagos-test").addEventListener("click", async () => { leerAjustes(); await probarPagos(); });
