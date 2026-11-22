@@ -208,6 +208,7 @@
         <h2 class="view-title">Catálogo</h2>
         <button class="btn btn-mini btn-ghost" id="btn-sync">🔄 Sincronizar</button>
       </div>
+      <button class="btn btn-ghost btn-block" id="btn-inventario">📦 Inventario de pre-impresos</button>
       <p class="hint" id="cat-aviso"></p>
       <div class="seg" id="cat-filtro">
         <button class="seg-btn active" data-f="todos">Todos</button>
@@ -230,6 +231,25 @@
       </div>
       <div class="totals" id="cot-totales"></div>
       <div id="cot-list" class="list"></div>
+    </section>
+
+    <!-- ---------- INVENTARIO ---------- -->
+    <section class="view" id="view-inventario" hidden>
+      <div class="view-head">
+        <h2 class="view-title">Inventario</h2>
+        <button class="btn btn-mini btn-ghost" id="inv-volver">‹ Catálogo</button>
+      </div>
+      <p class="hint">Las letras y figuras que ya están impresas. El sitio sólo
+        ofrece nombres que de verdad puedes surtir.</p>
+      <div class="totals" id="inv-totales"></div>
+      <div id="inv-colores" class="list-mini"></div>
+      <div class="row">
+        <input type="text" id="inv-color-nombre" placeholder="Color nuevo (Turquesa)">
+        <input type="color" id="inv-color-hex" value="#4cc9ff" aria-label="Tono del color">
+        <button class="btn btn-ghost" id="inv-color-add">+</button>
+      </div>
+      <div id="inv-piezas"></div>
+      <button class="btn btn-primary btn-block" id="inv-publicar">📤 Publicar inventario al sitio</button>
     </section>
 
     <!-- ---------- PEDIDOS ---------- -->

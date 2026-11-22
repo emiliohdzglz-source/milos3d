@@ -285,6 +285,49 @@ También ahí van los **materiales**, cada uno con su precio por kilo.
 
 ---
 
+## 📦 Inventario de pre-impresos
+
+Los clickers y los charms no se imprimen por pedido: se imprimen por tandas,
+abecedarios completos, para ahorrar tiempo y filamento. Entonces armar un
+nombre no es imprimir — es **surtir de lo que hay**. Esta pantalla lleva esa
+cuenta, y hace que el sitio no ofrezca lo que no existe.
+
+Se entra desde **Catálogo → 📦 Inventario de pre-impresos**.
+
+### Capturar una tanda
+
+Toca **Ver** en el color, y luego **➕ Entró una tanda de abecedarios**: dices
+cuántos abecedarios completos salieron y les suma una a cada letra. Para
+corregir una pieza suelta, tócala y escribe el número correcto.
+
+Los colores vienen con los nueve que ya ofrecía la pulsera. Puedes **agregar**
+los tuyos (nombre y tono) o quitar los que ya no manejes.
+
+### Publicar al sitio
+
+**📤 Publicar inventario al sitio.** A partir de ahí, en milos3d.com:
+
+- El configurador **sólo ofrece los colores que tienen piezas**.
+- Las letras que no hay en ningún color **no aparecen**.
+- Si alguien quiere *PAULA* en lila y sólo queda una A, al poner la segunda le
+  dice: *«Ya no quedan «A» en Lila. Sí hay en: Rosa mexicano»*. No lo deja
+  atorado: le propone dónde sí.
+- El pedido que llega por WhatsApp ya trae **el color de cada letra**.
+
+> **Lo que se publica no es tu inventario.** Las cantidades salen topadas en 9,
+> que alcanza de sobra para validar cualquier nombre. Si tienes 400 piezas de
+> la A, el sitio dice 9. Nadie se entera de cuánto tienes.
+
+### Mientras no publiques
+
+El sitio se comporta **igual que siempre**: ofrece el abecedario completo y
+todos los colores de la ficha, sin bloquear nada. El filtro sólo empieza a
+funcionar cuando publicas por primera vez — así que puedes capturar con calma
+y publicar cuando el conteo ya refleje la realidad.
+
+> Lo que todavía **no** hace: descontar solo cuando vendes. Después de surtir
+> un pedido hay que bajar la cuenta a mano, tocando las piezas que usaste.
+
 ## 🛠️ Pedidos
 
 La pestaña **Pedidos** es la pantalla del día a día: lo que pasa *después* de
