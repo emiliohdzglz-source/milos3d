@@ -56,6 +56,27 @@ const DEFAULTS = {
      son los $65 de tu lista. */
   margen: 55,
   redondeo: 5,
+  /* Ningún descuento puede dejar la utilidad por debajo de este porcentaje
+     DEL PRECIO. Es la red que permite ser el más barato de la región sin
+     acabar regalando el trabajo: el panel recorta solo el descuento que
+     rompa este piso y lo dice en pantalla. */
+  pisoUtilidad: 20,
+  /* Por abajo de esto no se cotiza aunque la cuenta dé menos. Un charm de
+     $4 cuesta más en la plática, la bolsita y la entrega que en filamento,
+     y cotizarlo en $4 no es ser barato: es perder dinero. */
+  precioMinimo: 20,
+  /* Gramos que el AMS tira al cambiar de color, por cada color extra.
+     Sólo se usa si los gramos capturados NO vienen del laminador: Bambu
+     Studio ya reporta la purga dentro del total de filamento. */
+  purgaPorColor: 12,
+  /* Descuento por cantidad del pedido (no por placa). Se aplica solo
+     mientras respete el piso de utilidad. */
+  escalaDescuentos: [
+    { desde: 3, pct: 5 },
+    { desde: 6, pct: 10 },
+    { desde: 12, pct: 15 },
+    { desde: 24, pct: 20 }
+  ],
   anticipo: 50,
   linkPago: "",
   datosPago: "",
@@ -123,7 +144,8 @@ let temporizadorLock = null;
 function nuevoForm() {
   return {
     id: null, nombre: "", descripcion: "", link: "", imagen: "", imagenPath: "",
-    gramos: 0, piezas: 1, horas: 0, minutos: 0, mano: 0, extras: 0, materialIdx: 0, maquinaIdx: 0,
+    gramos: 0, piezas: 1, horas: 0, minutos: 0, mano: 0, extras: 0, purga: 0,
+    materialIdx: 0, maquinaIdx: 0,
     colores: [], etiquetas: "", badge: "", precioManual: null,
     creadoPor: "", costosPor: "", publicadoPor: ""
   };
@@ -718,7 +740,10 @@ function calcular(f = form, a = DB.ajustes) {
   const tarifaHora = ch.total;
 
   const horasTotales = num(f.horas) + num(f.minutos) / 60;
-  const material = (num(f.gramos) / 1000) * precioKg;
+  // La purga del AMS es filamento que se paga y se tira. Si los gramos
+  // vienen del laminador ya va incluida y este campo se queda en cero.
+  const purga = num(f.purga);
+  const material = ((num(f.gramos) + purga) / 1000) * precioKg;
   const maquina = horasTotales * tarifaHora;
   // La luz y el desgaste se separan para que el desglose diga de dónde
   // sale cada peso, no nada más "impresora".
@@ -737,22 +762,85 @@ function calcular(f = form, a = DB.ajustes) {
   const costoPieza = costoTotal / piezas;
 
   const sugerido = costoPieza * (1 + num(a.margen) / 100);
-  const paso = Math.max(1, num(a.redondeo) || 1);
-  const precioSugerido = Math.ceil(sugerido / paso) * paso;
+  const precioSugerido = redondear(sugerido, a);
   const precio = f.precioManual != null && f.precioManual !== "" ? num(f.precioManual) : precioSugerido;
   const utilidad = precio - costoPieza;
   const margenReal = precio > 0 ? (utilidad / precio) * 100 : 0;
+  const maquinaPieza = maquina / piezas;
 
-  return { material, maquina, luz, desgaste, manual: ch.manual, mano, extras, merma, costoTotal, costoPieza, precioSugerido, precio, utilidad, margenReal, piezas, precioKg, horasTotales, maquina_nombre: maq?.nombre || "", tarifaHora };
+  return { material, maquina, maquinaPieza, luz, desgaste, manual: ch.manual, mano, extras, purga, merma, costoTotal, costoPieza, precioSugerido, precio, utilidad, margenReal, piezas, precioKg, horasTotales, maquina_nombre: maq?.nombre || "", tarifaHora };
+}
+
+/* Redondea hacia arriba al múltiplo configurado y nunca por debajo del
+   precio mínimo: hacia arriba, porque redondear hacia abajo se come la
+   utilidad justo en las piezas chicas, que es donde menos sobra. */
+function redondear(n, a = DB.ajustes) {
+  const paso = Math.max(1, num(a.redondeo) || 1);
+  return Math.max(num(a.precioMinimo), Math.ceil(n / paso) * paso);
+}
+
+/* ==========================================================
+   DESCUENTO POR CANTIDAD
+   ==========================================================
+   La regla del negocio: ser el más barato de la región sin perder
+   dinero. Eso son dos cosas a la vez, así que el descuento se aplica
+   pero se RECORTA en cuanto la utilidad baje del piso. Si un 30% no
+   cabe, el panel da el descuento más grande que sí cabe y lo dice,
+   en vez de dejar que alguien prometa un 2x1 que cuesta dinero. */
+function precioConDescuento(costoPieza, precioBase, pct, a = DB.ajustes) {
+  const piso = Math.min(95, Math.max(0, num(a.pisoUtilidad))) / 100;
+  // Precio más bajo que todavía deja el piso: precio − costo ≥ piso × precio.
+  // Ese sí se redondea hacia arriba, porque es el que protege la utilidad.
+  const precioPiso = redondear(costoPieza / (1 - piso), a);
+  const pedido = precioBase * (1 - num(pct) / 100);
+  // Un descuento se redondea hacia ABAJO: hacia arriba se comía el
+  // descuento entero —5% sobre $65 volvía a dar $65 y el escalón no servía
+  // de nada—. Nunca pasa por debajo del piso ni del precio mínimo.
+  const paso = Math.max(1, num(a.redondeo) || 1);
+  const bajado = Math.max(num(a.precioMinimo), Math.floor(pedido / paso) * paso);
+  const recortado = bajado < precioPiso;
+  const precio = Math.max(precioPiso, bajado);
+  const utilidad = precio - costoPieza;
+  return {
+    pct: num(pct),
+    pctReal: precioBase > 0 ? Math.max(0, (1 - precio / precioBase) * 100) : 0,
+    precio, utilidad,
+    utilidadPct: precio > 0 ? (utilidad / precio) * 100 : 0,
+    recortado
+  };
+}
+
+/* "3x2" se anuncia mejor que "33% de descuento". Devuelve la promoción
+   equivalente sólo si el porcentaje real cae casi exacto en una de ellas;
+   si no, vale más decir el porcentaje que mentir con un 3x2 que no es.
+   Sólo hasta 6x5: un "12x11" no lo anuncia nadie, y ponerlo convierte
+   una ayuda en ruido. */
+function promoEquivalente(pct) {
+  for (let n = 2; n <= 6; n++) {
+    if (Math.abs(100 / n - pct) <= 1.2) return `${n}x${n - 1}`;
+  }
+  return "";
+}
+
+/* La escalera completa, lista para pintar: cada escalón del pedido con su
+   precio por pieza, lo que se gana y si hubo que recortarlo. */
+function escaleraDescuentos(c, a = DB.ajustes) {
+  const escala = Array.isArray(a.escalaDescuentos) ? a.escalaDescuentos : DEFAULTS.escalaDescuentos;
+  const base = [{ desde: 1, pct: 0 }, ...escala]
+    .map(e => ({ desde: Math.max(1, num(e.desde) || 1), pct: Math.max(0, num(e.pct)) }))
+    .sort((x, y) => x.desde - y.desde);
+  return base.map(e => ({ desde: e.desde, ...precioConDescuento(c.costoPieza, c.precio, e.pct, a) }));
 }
 
 function recalcular() {
   const c = calcular();
   $("#calc-breakdown").innerHTML = `
-    <div class="bd-row"><span>Filamento (${num(form.gramos)} g × ${money(c.precioKg)}/kg)</span><b>${money(c.material)}</b></div>
+    <div class="bd-row"><span>Filamento (${num(form.gramos) + c.purga} g × ${money(c.precioKg)}/kg)</span><b>${money(c.material)}</b></div>
+    ${c.purga > 0 ? `<div class="bd-row sub"><span>· de esos, ${c.purga} g de purga del AMS</span><b>${money(c.purga / 1000 * c.precioKg)}</b></div>` : ""}
     <div class="bd-row"><span>${esc(c.maquina_nombre)} (${c.horasTotales.toFixed(2)} h × ${centavos(c.tarifaHora)}/h)</span><b>${money(c.maquina)}</b></div>
     ${!c.manual && c.maquina > 0 ? `<div class="bd-row sub"><span>· desgaste de la máquina</span><b>${money(c.desgaste)}</b></div>
     <div class="bd-row sub"><span>· luz</span><b>${money(c.luz)}</b></div>` : ""}
+    ${c.piezas > 1 && c.maquina > 0 ? `<div class="bd-row sub"><span>· repartida entre ${c.piezas} piezas</span><b>${centavos(c.maquinaPieza)} c/u</b></div>` : ""}
     ${c.mano > 0 ? `<div class="bd-row"><span>Armado (${num(form.mano)} min por pieza)${c.piezas > 1 ? ` × ${c.piezas}` : ""}</span><b>${money(c.mano * c.piezas)}</b></div>` : ""}
     ${c.extras > 0 ? `<div class="bd-row"><span>Extras (baleros, imanes…)${c.piezas > 1 ? ` × ${c.piezas}` : ""}</span><b>${money(c.extras * c.piezas)}</b></div>` : ""}
     <div class="bd-row"><span>Merma ${num(DB.ajustes.merma)}%</span><b>${money(c.merma)}</b></div>
@@ -765,6 +853,45 @@ function recalcular() {
   $("#calc-margen").textContent = c.precio > 0
     ? `Con ${money(c.precio)} ganas ${money(c.utilidad)} por pieza (${c.margenReal.toFixed(0)}% del precio).`
     : "Captura gramos y tiempo para ver el precio.";
+  pintarEscalera(c);
+}
+
+/* La escalera de descuentos, en vivo, debajo del precio. Sirve para
+   contestar en la plática de WhatsApp sin sacar la calculadora: cuánto
+   le dejas por 6, por 12, y hasta dónde puedes bajar sin perder. */
+function pintarEscalera(c) {
+  const caja = $("#calc-escalera");
+  if (!caja) return;
+  if (!(c.precio > 0) || !(c.costoPieza > 0)) { caja.innerHTML = ""; return; }
+
+  const a = DB.ajustes;
+  const filas = escaleraDescuentos(c, a);
+  const piso = num(a.pisoUtilidad);
+
+  caja.innerHTML = `
+    <p class="esc-titulo">Si te piden más de una</p>
+    <div class="esc-tabla">
+      ${filas.map(f => {
+        const promo = promoEquivalente(f.pctReal);
+        const etiqueta = f.desde === 1 ? "1 pieza" : `${f.desde} o más`;
+        return `<div class="esc-fila${f.recortado ? " esc-tope" : ""}">
+          <span class="esc-n">${etiqueta}</span>
+          <span class="esc-pct">${f.pctReal >= 0.5 ? `−${f.pctReal.toFixed(0)}%` : "—"}${promo ? ` <i>(${promo})</i>` : ""}</span>
+          <b class="esc-precio">${money(f.precio)}</b>
+          <span class="esc-gana">ganas ${money(f.utilidad)} · ${f.utilidadPct.toFixed(0)}%</span>
+        </div>`;
+      }).join("")}
+    </div>
+    ${filas.some(f => f.recortado)
+      ? `<p class="hint esc-aviso">Los escalones marcados pedían más descuento del que cabe:
+         se recortaron solos para no bajar del ${piso}% de utilidad que pusiste de piso.</p>`
+      : `<p class="hint">Todos los escalones caben arriba de tu piso del ${piso}% de utilidad.</p>`}
+    <p class="hint">${(() => {
+      const tope = precioConDescuento(c.costoPieza, c.precio, 100, a);
+      const promo = promoEquivalente(tope.pctReal);
+      return `Lo más barato que puedes ofrecer sin romper el piso es <b>${money(tope.precio)}</b>
+              (−${tope.pctReal.toFixed(0)}%${promo ? `, o sea un ${promo}` : ""}).`;
+    })()}</p>`;
 }
 
 /* ==========================================================
@@ -826,6 +953,7 @@ function leerForm() {
   form.minutos = num($("#f-min").value);
   form.mano = num($("#f-mano").value);
   form.extras = num($("#f-extras").value);
+  form.purga = num($("#f-purga").value);
   form.materialIdx = num($("#f-material").value);
   form.maquinaIdx = num($("#f-maquina").value);
   form.etiquetas = $("#f-tags").value;
@@ -844,6 +972,7 @@ function pintarForm() {
   $("#f-min").value = form.minutos || 0;
   $("#f-mano").value = form.mano || 0;
   $("#f-extras").value = form.extras || 0;
+  $("#f-purga").value = form.purga || 0;
   $("#f-tags").value = form.etiquetas;
   $("#f-badge").value = form.badge;
   $("#f-precio").value = form.precioManual ?? "";
@@ -2534,7 +2663,8 @@ const AJ_CAMPOS = [
   ["s-horasDia", "horasDia", "num"], ["s-colchonDias", "colchonDias", "num"],
   ["s-anticipo", "anticipo", "num"], ["s-linkPago", "linkPago", "str"],
   ["s-datosPago", "datosPago", "str"], ["s-proxy", "proxy", "str"],
-  ["s-pagosURL", "pagosURL", "str"]
+  ["s-pagosURL", "pagosURL", "str"],
+  ["s-pisoUtilidad", "pisoUtilidad", "num"], ["s-precioMinimo", "precioMinimo", "num"]
 ];
 
 function pintarAjustes() {
@@ -2548,7 +2678,39 @@ function pintarAjustes() {
   $("#s-autolock").value = String(DB.ajustes.autolock ?? 5);
   pintarMaterialesAjustes();
   pintarFlotaAjustes();
+  pintarEscalaAjustes();
   pintarEstadoSeguridad();
+}
+
+/* Los escalones de descuento, editables. Cada renglón enseña de una vez
+   lo que pediste y lo que de verdad va a salir, porque son cosas
+   distintas en cuanto el piso de utilidad recorta. */
+function pintarEscalaAjustes() {
+  const cont = $("#s-escala");
+  if (!cont) return;
+  if (!Array.isArray(DB.ajustes.escalaDescuentos)) {
+    DB.ajustes.escalaDescuentos = DEFAULTS.escalaDescuentos.map(e => ({ ...e }));
+  }
+  const esc0 = DB.ajustes.escalaDescuentos;
+  cont.innerHTML = esc0.map((e, i) => `
+    <div class="mini esc-edit">
+      <label class="esc-campo">Desde
+        <input type="number" inputmode="numeric" min="2" data-esc="desde" data-i="${i}" value="${num(e.desde) || 2}">
+      </label>
+      <label class="esc-campo">Descuento %
+        <input type="number" inputmode="numeric" min="0" max="95" data-esc="pct" data-i="${i}" value="${num(e.pct) || 0}">
+      </label>
+      <button class="icon-btn" data-esc-del="${i}">✕</button>
+    </div>`).join("") || `<p class="hint">Sin escalones: todos los pedidos pagan precio de lista.</p>`;
+
+  $$("#s-escala [data-esc]").forEach(el => el.addEventListener("change", () => {
+    DB.ajustes.escalaDescuentos[+el.dataset.i][el.dataset.esc] = num(el.value);
+    guardar(); pintarEscalaAjustes(); recalcular();
+  }));
+  $$("#s-escala [data-esc-del]").forEach(b => b.addEventListener("click", () => {
+    DB.ajustes.escalaDescuentos.splice(+b.dataset.escDel, 1);
+    guardar(); pintarEscalaAjustes(); recalcular();
+  }));
 }
 
 function pintarEstadoSeguridad() {
@@ -2765,7 +2927,7 @@ function arrancar() {
   });
 
   // Cálculo en vivo
-  ["f-gramos", "f-piezas", "f-horas", "f-min", "f-mano", "f-extras", "f-material", "f-precio"].forEach(id =>
+  ["f-gramos", "f-piezas", "f-horas", "f-min", "f-mano", "f-extras", "f-purga", "f-material", "f-precio"].forEach(id =>
     $("#" + id).addEventListener("input", () => { leerForm(); recalcular(); }));
   $("#f-material").addEventListener("change", () => { leerForm(); recalcular(); });
   $("#f-maquina").addEventListener("change", () => { leerForm(); recalcular(); });
@@ -2837,6 +2999,15 @@ function arrancar() {
     });
     $("#s-maq-nombre").value = ""; $("#s-maq-tarifa").value = "";
     guardar(); pintarFlotaAjustes(); pintarMaquinas();
+  });
+  $("#s-escala-add").addEventListener("click", () => {
+    if (!Array.isArray(DB.ajustes.escalaDescuentos)) DB.ajustes.escalaDescuentos = [];
+    const ultimo = DB.ajustes.escalaDescuentos[DB.ajustes.escalaDescuentos.length - 1];
+    DB.ajustes.escalaDescuentos.push({
+      desde: Math.max(2, num(ultimo?.desde) * 2 || 3),
+      pct: Math.min(95, num(ultimo?.pct) + 5 || 5)
+    });
+    guardar(); pintarEscalaAjustes(); recalcular();
   });
   $("#s-mat-add").addEventListener("click", () => {
     const n = $("#s-mat-nombre").value.trim(), p = num($("#s-mat-precio").value);

@@ -502,3 +502,24 @@ textarea { resize: vertical; line-height: 1.45; }
   margin: 10px 0;
   box-shadow: 0 10px 30px rgba(0, 0, 0, .4);
 }
+
+/* ---------- Escalera de descuentos por cantidad ----------
+   Vive debajo del precio en la cotización: la idea es poder contestar
+   "¿y si te llevo 6?" sin salirse de WhatsApp ni sacar calculadora. */
+.escalera { margin-top: 14px; border-top: 1px solid rgba(255,255,255,.08); padding-top: 12px; }
+.esc-titulo { font-weight: 600; margin: 0 0 8px; font-size: 15px; }
+.esc-tabla { display: flex; flex-direction: column; gap: 6px; }
+.esc-fila {
+  display: grid; grid-template-columns: 1fr auto auto; gap: 4px 10px;
+  align-items: baseline; padding: 7px 10px; border-radius: 9px;
+  background: rgba(255,255,255,.04);
+}
+.esc-fila.esc-tope { background: rgba(255,176,32,.10); border: 1px solid rgba(255,176,32,.28); }
+.esc-n { font-weight: 600; }
+.esc-pct { font-variant-numeric: tabular-nums; opacity: .85; }
+.esc-pct i { font-style: normal; opacity: .7; }
+.esc-precio { font-size: 17px; text-align: right; font-variant-numeric: tabular-nums; }
+.esc-gana { grid-column: 1 / -1; font-size: 13px; opacity: .65; }
+.esc-aviso { color: #ffc35c; }
+.esc-edit { display: flex; gap: 10px; align-items: flex-end; }
+.esc-campo { flex: 1; min-width: 0; }

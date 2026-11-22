@@ -127,6 +127,10 @@
           como te los da Bambu Studio. Si en esa placa salen varias piezas, ponlo en
           “Piezas por impresión” y el costo se reparte entre todas: es lo que vuelve
           negocio a un clicker barato.</p>
+        <p class="hint"><b>Purga del AMS</b>: déjala en 0 si los gramos salieron del
+          laminador, porque ahí ya viene incluida. Ponla sólo si pesaste la pieza
+          sola y es multicolor — son los gramos que el AMS tira en cada cambio.
+          Lo multicolor también tarda más, y eso ya entra por las horas.</p>
         <div class="grid2">
           <label>Gramos de toda la impresión
             <input type="number" id="f-gramos" inputmode="decimal" step="0.1" min="0" placeholder="0">
@@ -145,6 +149,9 @@
           </label>
           <label>Extras $ por pieza (baleros, imanes…)
             <input type="number" id="f-extras" inputmode="decimal" step="0.5" min="0" value="0">
+          </label>
+          <label>Purga del AMS (g)
+            <input type="number" id="f-purga" inputmode="decimal" step="1" min="0" value="0">
           </label>
           <label>Material
             <select id="f-material"></select>
@@ -169,6 +176,7 @@
           </label>
         </div>
         <p class="hint" id="calc-margen"></p>
+        <div id="calc-escalera" class="escalera"></div>
       </div>
 
       <div class="card">
@@ -317,6 +325,25 @@
           precio por kWh; súmale 16% de IVA. Este número mueve el costo de las cuatro máquinas.</p>
         <p class="hint"><b>Impresora $/hora</b> ya casi no se usa: cada máquina calcula su
           propio costo abajo. Sólo aplica a una máquina a la que no le hayas puesto precio.</p>
+      </div>
+
+      <div class="card">
+        <h3 class="card-title">Descuentos por cantidad</h3>
+        <p class="hint">Para poder ser el más barato de la región sin perder dinero.
+          El panel aplica el descuento solo, y lo <b>recorta</b> en cuanto la utilidad
+          baje del piso: nunca te va a dejar prometer un 2x1 que cuesta dinero.</p>
+        <div class="grid2">
+          <label>Piso de utilidad %
+            <input type="number" id="s-pisoUtilidad" inputmode="numeric" min="0" max="95">
+          </label>
+          <label>Precio mínimo $
+            <input type="number" id="s-precioMinimo" inputmode="numeric" min="0">
+          </label>
+        </div>
+        <p class="hint">El <b>precio mínimo</b> es para charms y teclas: un cálculo de $4
+          no es ser barato, es regalar la bolsita, la plática y la entrega.</p>
+        <div id="s-escala" class="list-mini"></div>
+        <button class="btn btn-ghost btn-block" id="s-escala-add">+ Agregar escalón</button>
       </div>
 
       <div class="card">
