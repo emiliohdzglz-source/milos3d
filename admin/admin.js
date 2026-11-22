@@ -2053,6 +2053,41 @@ function venderTerminado(id, cantidad = 1) {
   return { ...r, producto: t, quedan: t.cantidad };
 }
 
+/* De la caja al sitio: abre la ficha del producto con el nombre y el
+   precio ya puestos, para que sólo falte la foto y la descripción.
+
+   Sin esto, publicar los 46 productos de la caja significa teclear 46
+   nombres y 46 precios que YA están capturados aquí, y por eso no se
+   publican nunca. Si ya existe una ficha con ese nombre, se abre esa en
+   vez de crear una repetida. */
+function fichaDesdeTerminado(id) {
+  const t = (DB.terminados || []).find(x => x.id === id);
+  if (!t) return { error: "No encontré ese producto." };
+
+  const ya = (DB.productos || []).find(p => normNombre(p.nombre) === normNombre(t.nombre));
+  if (ya) { editarProducto(ya.id); return { producto: ya, existia: true }; }
+
+  form = { ...nuevoForm(), nombre: t.nombre, precioManual: num(t.precio) || null };
+  editandoId = null;
+  irA("nuevo");
+  pintarForm();
+  return { nuevo: t, existia: false };
+}
+
+/* Qué tanto del catálogo ya tiene ficha con foto. Es el número que dice
+   si vale la pena una sesión de fotos o ya nada más faltan dos. */
+function avanceFichas() {
+  const t = DB.terminados || [];
+  const conFicha = t.filter(x =>
+    (DB.productos || []).some(p => normNombre(p.nombre) === normNombre(x.nombre)));
+  const conFoto = conFicha.filter(x => {
+    const p = DB.productos.find(y => normNombre(y.nombre) === normNombre(x.nombre));
+    return !!(p.imagenPath || p.imagen);
+  });
+  return { total: t.length, conFicha: conFicha.length, conFoto: conFoto.length,
+           faltan: t.filter(x => !(DB.productos || []).some(p => normNombre(p.nombre) === normNombre(x.nombre))) };
+}
+
 /* Pegado desde la hoja, en el orden en que ya está escrita:
      cantidad · producto · precio
    Acepta también producto · cantidad · precio, decidiendo por cuál de
@@ -2273,20 +2308,39 @@ function pintarTerminados() {
   const piezas = t.reduce((s, x) => s + num(x.cantidad), 0);
   const valor = t.reduce((s, x) => s + num(x.cantidad) * num(x.precio), 0);
   const agotados = t.filter(x => !num(x.cantidad)).length;
+  const av = avanceFichas();
   $("#ter-totales").innerHTML = `
     <div class="tot"><span>Productos</span><strong>${t.length}</strong></div>
     <div class="tot"><span>Piezas</span><strong>${piezas}</strong></div>
     <div class="tot"><span>Valor</span><strong>${money(valor)}</strong></div>
+    <div class="tot"><span>Con foto</span><strong class="${av.conFoto < av.total ? "alerta" : ""}">${av.conFoto}/${av.total}</strong></div>
     ${agotados ? `<div class="tot"><span>Agotados</span><strong class="alerta">${agotados}</strong></div>` : ""}`;
 
   const orden = [...t].sort((a, b) => num(b.cantidad) - num(a.cantidad) || a.nombre.localeCompare(b.nombre));
-  pintarSiCambia(cont, orden.length ? orden.map(x => `
+  const estadoFicha = (x) => {
+    const p = (DB.productos || []).find(y => normNombre(y.nombre) === normNombre(x.nombre));
+    if (!p) return { txt: "📷 Hacer ficha", clase: "sin-ficha" };
+    if (!(p.imagenPath || p.imagen)) return { txt: "📷 Falta la foto", clase: "sin-foto" };
+    return { txt: "✓ Publicado", clase: "con-foto" };
+  };
+
+  pintarSiCambia(cont, orden.length ? orden.map(x => {
+    const f = estadoFicha(x);
+    return `
     <div class="mini ${num(x.cantidad) ? "" : "ter-cero"}">
       <span class="grow">${esc(x.nombre)}<small>${money(x.precio)} c/u${num(x.cantidad) ? "" : " · AGOTADO"}</small></span>
       <b>${num(x.cantidad)}</b>
+      <button class="btn btn-mini btn-ghost ${f.clase}" data-ter-ficha="${esc(x.id)}">${f.txt}</button>
       <button class="btn btn-mini btn-ghost" data-ter-vender="${esc(x.id)}" ${num(x.cantidad) ? "" : "disabled"}>Vendí 1</button>
       <button class="icon-btn" data-ter-del="${esc(x.id)}">✕</button>
-    </div>`).join("") : `<p class="hint">Todavía no capturas producto terminado.</p>`);
+    </div>`;
+  }).join("") : `<p class="hint">Todavía no capturas producto terminado.</p>`);
+
+  $$("#ter-lista [data-ter-ficha]").forEach(b => b.addEventListener("click", () => {
+    const r = fichaDesdeTerminado(b.dataset.terFicha);
+    if (r.error) return toast(r.error);
+    toast(r.existia ? "Ya tenía ficha: ábrele la foto" : "Nombre y precio puestos. Falta la foto 📷");
+  }));
 
   $$("#ter-lista [data-ter-vender]").forEach(b => b.addEventListener("click", () => {
     const r = venderTerminado(b.dataset.terVender);
