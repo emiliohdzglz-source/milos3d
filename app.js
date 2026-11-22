@@ -147,8 +147,12 @@ function renderProducts() {
             <div class="product-price" data-price>${money(p.paquetes?.length ? p.paquetes[0].precio : p.precio)} <small>${p.paquetes?.length ? "paquete" : "c/u"}</small></div>
             <button class="btn-add" data-hover data-add="${p.id}">+ Agregar</button>
           </div>
-          ${p.promo?.lleva > p.promo?.paga
-            ? `<p class="product-promo">🎉 <b>${p.promo.lleva}×${p.promo.paga}</b> — lleva ${p.promo.lleva} y paga ${p.promo.paga}</p>`
+          ${p.promo?.lleva > p.promo?.paga && p.precio > 0
+            /* La etiqueta de la foto ya grita "3×2". Repetirlo aquí no
+               vende nada; lo que convence al momento de decidir es el
+               número: cuánto cuestan los tres y cuánto se ahorra. */
+            ? `<p class="product-promo">🎉 Llévate <b>${p.promo.lleva} por ${money(p.precio * p.promo.paga)}</b>
+                 — te ahorras ${money(p.precio * (p.promo.lleva - p.promo.paga))}</p>`
             : ""}`}
       </div>
     </article>
