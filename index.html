@@ -1,211 +1,360 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="es">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>MILO'S 3D — Impresión 3D del Futuro</title>
-  <meta name="description" content="MILO'S 3D: figuras y piezas impresas en 3D con tecnología de vanguardia. Diseños articulados, colores personalizables y pedidos directos por WhatsApp.">
-  <meta property="og:title" content="MILO'S 3D — Impresión 3D del Futuro">
-  <meta property="og:description" content="Figuras articuladas y piezas impresas en 3D. Pide la tuya hoy mismo.">
-  <meta property="og:url" content="https://www.milos3d.com">
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&family=Rajdhani:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css">
-  <link rel="icon" href="assets/logo.webp" type="image/webp">
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>MILO'S 3D · impresión 3D</title>
+  <meta name="description" content="Fidgets, juguetes, pulseras gigantes y decoración impresos en 3D en Querétaro, con el nombre que tú quieras. Pedidos por WhatsApp.">
+  <meta name="theme-color" content="#f2efe9">
+  <link rel="icon" href="./favicon.png" type="image/png">
+  <!-- primera pintura: nunca la página sin estilo. Este script corre antes de cualquier archivo: activa el tema (?tema=)
+       y la apertura. Con la apertura activa, lo primero que se pinta es la cortina oscura, que ya está en el HTML; la
+       página se arma debajo de ella. Si el JS no carga en 4 s, la cortina se va y la página aparece lista. -->
+  <script>
+    (function () {
+      var r = document.documentElement;
+      r.classList.add('js');
+      var t = /[?&]tema=(limao|piscina|caramelo)\b/.exec(location.search);
+      if (t) r.classList.add('tema-' + t[1]);
+      if ('scrollRestoration' in history) history.scrollRestoration = 'manual';
+      var reduzido = matchMedia('(prefers-reduced-motion: reduce)').matches;
+      if (reduzido) r.classList.add('reduzido');
+      var pronto = true; // el acceso animado ahora es el túnel 3D
+      if (!pronto) {
+        r.classList.add('abertura-on');
+        setTimeout(function () { if (!window.__pelu) r.classList.remove('abertura-on'); }, 4000);
+      }
+    })();
+  </script>
+  <style>html{--fundo:#f2efe9;--escuro:#16131f;background:var(--fundo)}html.tema-limao{--fundo:#e4e2dd;--escuro:#121416}html.tema-piscina{--fundo:#e6eff2;--escuro:#0d1b36}html.tema-caramelo{--fundo:#f6ecdd;--escuro:#2a150c}body{margin:0}html:not(.assentou) *,html:not(.assentou) :before,html:not(.assentou) :after{transition:none!important}.abertura{z-index:90;pointer-events:none;display:none;position:fixed;inset:0;overflow:hidden}.abertura-on .abertura{pointer-events:auto;display:block}.abertura__cortina{width:100%;height:100%;display:block;position:absolute;inset:0}.abertura__cortina path{fill:var(--escuro)}</style>
+  <script type="module" crossorigin src="./assets/index-zEEmWEBJ.js"></script>
+  <link rel="stylesheet" crossorigin href="./assets/index-DzjiV2SC.css">
 </head>
 <body>
+  <!-- la apertura: los objetos desfilan en lo oscuro y la cortina sube en arco (motion/abertura.js) -->
+  <div class="abertura" aria-hidden="true">
+    <svg class="abertura__cortina" viewBox="0 0 100 100" preserveAspectRatio="none"><path d="M0 0H100V112H0Z"/></svg>
+    <div class="abertura__fila"></div>
+  </div>
+  <header class="nav" data-nav>
+  <a class="logo" href="#topo" aria-label="MILO'S 3D, inicio">
+    <!-- el símbolo: el robotito Milo (imagen con transparencia) -->
+    <img class="logo__simbolo logo__robot" src="./img/logo.webp" alt="" width="40" height="54" decoding="async" draggable="false">
+    <span class="logo__nome">milo's&nbsp;3d</span>
+  </a>
 
-  <!-- Fondo animado de circuitos -->
-  <canvas id="circuit-bg" aria-hidden="true"></canvas>
-  <div class="grid-overlay" aria-hidden="true"></div>
-
-  <!-- Cursor personalizado -->
-  <div class="cursor-dot" aria-hidden="true"></div>
-  <div class="cursor-ring" aria-hidden="true"></div>
-
-  <!-- Navegación -->
-  <header class="nav" id="nav">
-    <a href="#inicio" class="nav-logo" data-hover>
-      <img src="assets/logo.webp" alt="MILO'S 3D" class="nav-logo-img" onerror="this.style.display='none'">
-      <span class="nav-logo-text">MILO'S <em>3D</em></span>
-    </a>
-    <nav class="nav-links">
-      <a href="#catalogo" data-hover>Catálogo</a>
-      <a href="#proceso" data-hover>Cómo pedir</a>
-      <a href="#tecnologia" data-hover>Tecnología</a>
-      <a href="#contacto" data-hover>Contacto</a>
-    </nav>
-    <button class="cart-btn" id="cart-btn" data-hover aria-label="Abrir carrito">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="21" r="1.6"/><circle cx="19" cy="21" r="1.6"/><path d="M2 3h3l2.6 12.6a1.7 1.7 0 0 0 1.7 1.4h9.2a1.7 1.7 0 0 0 1.7-1.3L22 8H6"/></svg>
-      <span class="cart-count" id="cart-count">0</span>
+  <div class="nav__meio">
+    <button class="pilula nav__menu" type="button" aria-expanded="false" aria-controls="menu" data-menu-botao>
+      <span class="pilula__txt"><span>Menu</span><span aria-hidden="true">Menu</span></span>
+      <span class="nav__pontos" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
     </button>
-  </header>
-
-  <!-- HERO -->
-  <section class="hero" id="inicio">
-    <div class="hero-inner">
-      <div class="hero-badge reveal">⚡ IMPRESIONES 3D · FIDGETS · JUGUETES · DECORACIÓN</div>
-      <h1 class="hero-title reveal">
-        <img src="assets/logo.webp" alt="MILO'S 3D" class="hero-logo"
-             onerror="this.style.display='none';this.nextElementSibling.style.display='inline'">
-        <span class="chrome-text" style="display:none">MILO'S 3D</span>
-      </h1>
-      <p class="hero-sub reveal">Del modelo digital a tus manos: fidgets, juguetes y piezas de decoración<br class="desk-only"> impresas con <strong>tecnología de vanguardia</strong>.</p>
-      <div class="hero-cta reveal">
-        <a href="#catalogo" class="btn btn-primary" data-hover data-tilt-btn>Ver catálogo <span class="btn-arrow">→</span></a>
-        <a href="#proceso" class="btn btn-ghost" data-hover>¿Cómo funciona?</a>
-      </div>
-      <div class="hero-chips reveal">
-        <span class="chip" data-hover>◉ PLA / PETG Premium</span>
-        <span class="chip" data-hover>◉ Colores personalizables</span>
-        <span class="chip" data-hover>◉ Pedido directo por WhatsApp</span>
-      </div>
-    </div>
-    <div class="hero-glow" aria-hidden="true"></div>
-    <div class="cube-field" aria-hidden="true">
-      <div class="cube3d c1"><i></i><i></i><i></i><i></i><i></i><i></i></div>
-      <div class="cube3d c2"><i></i><i></i><i></i><i></i><i></i><i></i></div>
-      <div class="cube3d c3"><i></i><i></i><i></i><i></i><i></i><i></i></div>
-    </div>
-    <div class="scroll-hint" aria-hidden="true"><span></span></div>
-  </section>
-
-  <!-- CATÁLOGO -->
-  <section class="section" id="catalogo">
-    <div class="section-head reveal">
-      <span class="section-tag">// CATÁLOGO</span>
-      <h2>Impresiones <span class="accent">disponibles</span></h2>
-      <p>Cada pieza se imprime al momento de tu pedido. Elige tu color favorito.</p>
-    </div>
-    <div class="products-grid" id="products-grid">
-      <!-- Productos cargados desde products.json -->
-    </div>
-  </section>
-
-  <!-- PROCESO -->
-  <section class="section" id="proceso">
-    <div class="section-head reveal">
-      <span class="section-tag">// PROCESO</span>
-      <h2>Pedir es <span class="accent">así de fácil</span></h2>
-    </div>
-    <div class="steps">
-      <div class="step-card reveal" data-tilt data-hover>
-        <div class="step-num">01</div>
-        <h3>Elige tu pieza</h3>
-        <p>Explora el catálogo, selecciona colores y agrega al carrito.</p>
-      </div>
-      <div class="step-card reveal" data-tilt data-hover>
-        <div class="step-num">02</div>
-        <h3>Envía tu pedido</h3>
-        <p>Un clic y tu pedido llega armado directo a nuestro WhatsApp.</p>
-      </div>
-      <div class="step-card reveal" data-tilt data-hover>
-        <div class="step-num">03</div>
-        <h3>Lo imprimimos</h3>
-        <p>Tu pieza se fabrica capa por capa con precisión robótica.</p>
-      </div>
-      <div class="step-card reveal" data-tilt data-hover>
-        <div class="step-num">04</div>
-        <h3>Llega a tus manos</h3>
-        <p>Entrega local o envío a todo México. ¡Listo para jugar!</p>
-      </div>
-    </div>
-  </section>
-
-  <!-- TECNOLOGÍA -->
-  <section class="section" id="tecnologia">
-    <div class="tech-panel reveal" data-tilt>
-      <div class="tech-copy">
-        <span class="section-tag">// TECNOLOGÍA</span>
-        <h2>Fabricación <span class="accent">del futuro</span>, hoy</h2>
-        <p>Trabajamos con impresoras 3D de última generación y materiales premium. Cada diseño pasa por calibración de precisión antes de imprimirse — como un laboratorio de robótica en miniatura trabajando para ti.</p>
-        <ul class="tech-list">
-          <li><span class="tech-dot"></span> Precisión de capa de hasta 0.08 mm</li>
-          <li><span class="tech-dot"></span> Materiales resistentes y seguros</li>
-          <li><span class="tech-dot"></span> Diseños articulados impresos en una sola pieza</li>
-          <li><span class="tech-dot"></span> Personalización total de colores</li>
-        </ul>
-      </div>
-      <div class="tech-visual" aria-hidden="true">
-        <div class="printer-frame">
-          <div class="printer-head"></div>
-          <div class="printer-laser"></div>
-          <div class="printer-obj"></div>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <!-- CONTACTO / FOOTER -->
-  <footer class="footer" id="contacto">
-    <div class="footer-cta reveal">
-      <h2>¿Buscas algo especial? <span class="accent">Mándanos una foto y te cotizamos.</span></h2>
-      <p>Envíanos una imagen o un ejemplo de lo que buscas — un fidget, un juguete, una pieza de decoración — y te cotizamos sin compromiso.</p>
-      <a href="#" class="btn btn-primary btn-wa" id="footer-wa" data-hover>
-        <svg viewBox="0 0 24 24" fill="currentColor" width="20" height="20"><path d="M12 2a10 10 0 0 0-8.6 15.1L2 22l5.1-1.3A10 10 0 1 0 12 2zm0 18.2a8.2 8.2 0 0 1-4.2-1.2l-.3-.2-3 .8.8-2.9-.2-.3A8.2 8.2 0 1 1 12 20.2zm4.5-6.1c-.2-.1-1.5-.7-1.7-.8-.2-.1-.4-.1-.6.1-.2.2-.6.8-.8 1-.1.2-.3.2-.5.1a6.7 6.7 0 0 1-3.3-2.9c-.3-.4 0-.6.1-.8l.4-.5c.1-.2.1-.3 0-.5l-.8-1.9c-.2-.5-.4-.4-.6-.4h-.5c-.2 0-.5.1-.7.3-.2.3-.9.9-.9 2.2s.9 2.5 1.1 2.7c.1.2 1.9 2.9 4.6 4a15 15 0 0 0 1.5.6c.6.2 1.2.2 1.7.1.5-.1 1.5-.6 1.7-1.2.2-.6.2-1.1.2-1.2-.1-.1-.3-.2-.5-.3z"/></svg>
-        Enviar mi idea por WhatsApp
-      </a>
-    </div>
-    <div class="footer-bar">
-      <span class="footer-brand">MILO'S <em>3D</em> © 2026</span>
-      <div class="footer-links">
-        <a href="#" id="footer-ig" data-hover target="_blank" rel="noopener">Instagram</a>
-        <a href="mailto:milos3d91@gmail.com" data-hover>milos3d91@gmail.com</a>
-        <a href="https://www.milos3d.com" data-hover>www.milos3d.com</a>
-      </div>
-    </div>
-  </footer>
-
-  <!-- CARRITO (drawer) -->
-  <div class="cart-overlay" id="cart-overlay"></div>
-  <aside class="cart-drawer" id="cart-drawer" aria-label="Carrito de compras">
-    <div class="cart-head">
-      <h3>Tu pedido</h3>
-      <button class="cart-close" id="cart-close" data-hover aria-label="Cerrar carrito">✕</button>
-    </div>
-    <div class="cart-items" id="cart-items"></div>
-    <div class="cart-foot">
-      <div class="cart-total-row"><span>Total</span><strong id="cart-total">$0 MXN</strong></div>
-      <p class="cart-note" id="cart-promo-note"></p>
-      <!-- Pago con tarjeta: sólo aparece si la tienda tiene servicio de cobro
-           configurado. Si no, queda el camino de siempre por WhatsApp. -->
-      <div id="cart-pago" hidden>
-        <label class="cart-campo">Tu nombre
-          <input type="text" id="cart-nombre" autocomplete="name" placeholder="Para saber de quién es el pedido">
-        </label>
-        <label class="cart-campo">Tu WhatsApp
-          <input type="tel" id="cart-tel" inputmode="tel" autocomplete="tel" placeholder="442 123 4567">
-        </label>
-        <button class="btn btn-primary btn-block" id="cart-pagar" data-hover>
-          💳 Pagar con tarjeta →
-        </button>
-        <p class="cart-note" id="cart-pago-msg"></p>
-        <p class="cart-o"><span>o</span></p>
-      </div>
-      <button class="btn btn-ghost btn-block" id="cart-checkout" data-hover>
-        Completar pedido por WhatsApp →
-      </button>
-      <p class="cart-note">Al enviar, se abre WhatsApp con tu pedido ya escrito. Confirmamos pago y envío por ahí.</p>
-    </div>
-  </aside>
-
-  <!-- CONFIGURADOR de producto personalizado -->
-  <div class="config-overlay" id="config-overlay"></div>
-  <div class="config-modal" id="config-modal" role="dialog" aria-label="Personaliza tu producto">
-    <div class="config-head">
-      <h3 id="config-title">Personaliza tu pulsera</h3>
-      <button class="cart-close" id="config-close" data-hover aria-label="Cerrar">✕</button>
-    </div>
-    <div class="config-body" id="config-body"></div>
-    <div class="config-foot">
-      <div class="cart-total-row"><span>Total</span><strong id="config-total">$0 MXN</strong></div>
-      <button class="btn btn-primary btn-block" id="config-add" data-hover>Agregar al pedido →</button>
-    </div>
+    <nav class="menu" id="menu" aria-label="Secciones" data-menu hidden>
+      <ul class="menu__lista">
+        <li><a href="#topo">Inicio</a></li>
+        <li><a href="#servicos">Lo que imprimimos</a></li>
+        <li><a href="#como">Cómo funciona</a></li>
+        <li><a href="#casa">La familia</a></li>
+        <li><a href="#loja">Tienda</a></li>
+        <li><a href="./catalogo.html">Catálogo y precios</a></li>
+        <li><a href="#agendar">Pedir</a></li>
+      </ul>
+      <p class="menu__pe rot">Pedidos todos los días<br>por WhatsApp</p>
+    </nav>
   </div>
 
-  <div class="toast" id="toast"></div>
+  <div class="nav__acoes">
+    <a class="pilula nav__whats" href="#agendar" data-whats><span class="pilula__txt"><span>WhatsApp</span><span aria-hidden="true">WhatsApp</span></span></a>
+    <a class="pilula pilula--cta" href="#agendar"><span class="pilula__txt"><span>Hacer pedido</span><span aria-hidden="true">Hacer pedido</span></span></a>
+  </div>
+</header>
 
-  <script src="app.js"></script>
+  <main>
+    <!-- El acceso: el túnel 3D en perspectiva (isla React). El scroll atraviesa el túnel entre las piezas de la colección
+     y, al final, suelta la página. data-lenis-prevent deja el wheel en manos del túnel. -->
+<section class="acceso" id="acceso" data-tema="escuro" data-lenis-prevent>
+  <div class="acceso__isla" id="isla-tunel" aria-label="Galería de entrada"></div>
+</section>
+
+    <section class="hero" id="topo">
+  <!-- el color que toma el fondo cuando un objeto se enciende: un círculo que se abre desde el cursor (motion/cor.js) -->
+  <div class="hero__cor" aria-hidden="true"><i data-cor-a></i><i data-cor-b></i></div>
+
+  <div class="hero__pe">
+    <p class="rot hero__pe-e">Impresión 3D<br>en Querétaro</p>
+    <h1 class="rot hero__frase">Fidgets, juguetes, pulseras gigantes y decoración impresos en 3D, <br>pieza por pieza, con el nombre que tú quieras.</h1>
+    <p class="rot hero__pe-d">Pedidos por WhatsApp<br>442 783 1563</p>
+  </div>
+</section>
+
+    <section class="manifesto" id="jeito" data-cena data-tema="escuro">
+  <p class="rot manifesto__selo">A nuestra manera</p>
+  <p class="rot manifesto__chamada">En MILO'S 3D, cada pieza<br>se imprime cuando<br>tú la pides</p>
+  <!-- el texto se enciende letra por letra a medida que pasa por la altura de lectura (motion/acende.js) -->
+  <p class="manifesto__texto" data-acende><span class="acende__t">Un juguete lo encuentras en cualquier tienda. Lo difícil es encontrar uno con el nombre de tu hija, en sus colores favoritos, hecho para su fiesta. En MILO'S 3D no hay bodega: cada clicker, cada pulsera y cada dino se imprime capa por capa cuando tú lo pides, aquí en Querétaro, y sale de la impresora directo a tus manos.</span></p>
+</section>
+
+    <!-- Lo que imprimimos: el rótulo y la pila quedan fijos en la pantalla mientras las cinco tarjetas entran, una de cada
+     lado, y se asientan unas sobre otras (motion/pilha.js). Cada tarjeta tiene el color de la categoría, el mismo que su
+     objeto enciende en el hero. data-lado: de qué lado entra la tarjeta (-1 izquierda, 1 derecha). El id es el destino
+     del clic en el objeto del hero. -->
+<section class="servicos" id="servicos" data-cena data-tema="escuro">
+  <div class="servicos__palco">
+    <h2 class="rot servicos__rotulo">Lo que imprimimos</h2>
+    <div class="pilha" data-pilha>
+      <article class="cartao" id="fidgets" data-lado="-1" style="--cor: var(--pop-1)">
+        <p class="rot cartao__topo"><span>(1)</span><span>Anti-estrés</span></p>
+        <h3 class="cartao__titulo">Fidgets<br>y clickers</h3>
+        <p class="rot cartao__texto">Cubos clicker con letras para armar nombres, spinners y bolas anti-estrés. El recuerdo que todos quieren en una fiesta.</p>
+        <a class="cartao__ir" href="#agendar" data-servico="fidget clickers" aria-label="Pedir fidget clickers"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 18 18 6M8 6h10v10"/></svg></a>
+        <figure class="cartao__foto"><img src="./img/fotos/fidgets.webp" alt="Decenas de cubos clicker de colores regados sobre un fondo rosa, con el nombre SOFIA armado al centro" loading="lazy" decoding="async" width="900" height="900"></figure>
+      </article>
+      <article class="cartao" id="pulseras" data-lado="1" style="--cor: var(--pop-5)">
+        <p class="rot cartao__topo"><span>(2)</span><span>Personalizadas</span></p>
+        <h3 class="cartao__titulo">Pulseras<br>gigantes</h3>
+        <p class="rot cartao__texto">Elige las letras, las figuras y los colores: cada pulsera se arma pieza por pieza con el nombre que tú digas.</p>
+        <a class="cartao__ir" href="#agendar" data-servico="una pulsera gigante" aria-label="Pedir una pulsera gigante"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 18 18 6M8 6h10v10"/></svg></a>
+        <figure class="cartao__foto"><img src="./img/fotos/pulseras.webp" alt="Pulsera gigante con el nombre DANIELA en letras de colores y dijes de personajes sobre fondo turquesa" loading="lazy" decoding="async" width="900" height="900"></figure>
+      </article>
+      <article class="cartao" id="juguetes" data-lado="-1" style="--cor: var(--pop-3)">
+        <p class="rot cartao__topo"><span>(3)</span><span>Para jugar</span></p>
+        <h3 class="cartao__titulo">Juguetes<br>y squishys</h3>
+        <p class="rot cartao__texto">Dinos articulados, mochis kawaii y juguetes que salen de la impresora listos para jugar, sin armar nada.</p>
+        <a class="cartao__ir" href="#agendar" data-servico="un juguete" aria-label="Pedir un juguete"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 18 18 6M8 6h10v10"/></svg></a>
+        <figure class="cartao__foto"><img src="./img/fotos/juguetes.webp" alt="Dinosaurio articulado verde con su balón de fútbol, impreso en 3D" loading="lazy" decoding="async" width="900" height="900"></figure>
+      </article>
+      <article class="cartao" id="temporada" data-lado="1" style="--cor: var(--pop-6)">
+        <p class="rot cartao__topo"><span>(4)</span><span>Temporada</span></p>
+        <h3 class="cartao__titulo">Decoración<br>y fiestas</h3>
+        <p class="rot cartao__texto">Renos para Navidad, botes para Halloween y paquetes para 25, 50 o 100 niños. Tu evento, en tus colores.</p>
+        <a class="cartao__ir" href="#agendar" data-servico="decoración de temporada" aria-label="Pedir decoración de temporada"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 18 18 6M8 6h10v10"/></svg></a>
+        <figure class="cartao__foto"><img src="./img/fotos/temporada.webp" alt="Tres renos navideños con gorro de Santa impresos en 3D sobre una mesa con luces de fondo" loading="lazy" decoding="async" width="900" height="900"></figure>
+      </article>
+      <article class="cartao" id="personalizados" data-lado="-1" style="--cor: var(--pop-4)">
+        <p class="rot cartao__topo"><span>(5)</span><span>Tu idea</span></p>
+        <h3 class="cartao__titulo">Personalizados<br>y cotizaciones</h3>
+        <p class="rot cartao__texto">¿Viste algo en internet o traes una idea? Mándanos la foto por WhatsApp y te decimos cuánto cuesta imprimirla.</p>
+        <a class="cartao__ir" href="#agendar" data-servico="una pieza personalizada" aria-label="Cotizar una pieza personalizada"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 18 18 6M8 6h10v10"/></svg></a>
+        <figure class="cartao__foto"><img src="./img/fotos/personalizados.webp" alt="Letras 3D de colores formando la palabra CREA sobre fondo azul" loading="lazy" decoding="async" width="900" height="900"></figure>
+      </article>
+    </div>
+  </div>
+</section>
+
+    <!-- Cómo funciona: otro párrafo que se enciende con la lectura, con tres fragmentos subrayados. Pasar el mouse por un
+     fragmento (o enfocarlo, o tocarlo) llena el subrayado como resaltador y abre su pila de imágenes (motion/trechos.js).
+     data-trecho conecta el fragmento con la pila (data-pilha-de). -->
+<section class="como" id="como" data-cena data-tema="escuro">
+  <h2 class="rot como__rotulo">Cómo funciona</h2>
+  <p class="como__texto" data-acende><span class="acende__t">Pedir es una conversación. Nos escribes por WhatsApp y <span class="trecho" data-trecho="idea" tabindex="0">nos cuentas tu idea</span>: un nombre, unos colores, una foto de algo que viste. Nosotros te cotizamos y tu pieza <span class="trecho" data-trecho="impresion" tabindex="0">se imprime capa por capa</span>, aquí mismo. Y cuando sale de la impresora, <span class="trecho" data-trecho="listo" tabindex="0">te avisamos al celular</span> para entregártela.</span></p>
+
+  <div class="tpilha" data-pilha-de="idea" aria-hidden="true">
+    <figure class="tp tp--foto"><img src="./img/fotos/idea.webp" alt="" loading="lazy" decoding="async" width="900" height="675"></figure>
+    <div class="tp tp--ficha">
+      <p class="rot tp__cab"><span>Pedido</span><span>N.º 0091</span></p>
+      <p class="tp__nome">Paula</p>
+      <p class="tp__sub">Pulsera gigante · 5 letras</p>
+      <ul class="tp__notas">
+        <li>Rosa mexicano y menta</li>
+        <li>Con estrella y corazón</li>
+        <li>Para el sábado</li>
+      </ul>
+    </div>
+  </div>
+  <div class="tpilha" data-pilha-de="impresion" aria-hidden="true">
+    <figure class="tp tp--foto"><img src="./img/fotos/impresion.webp" alt="" loading="lazy" decoding="async" width="900" height="675"></figure>
+    <figure class="tp tp--foto"><img src="./img/fotos/fidgets.webp" alt="" loading="lazy" decoding="async" width="900" height="900"></figure>
+  </div>
+  <div class="tpilha" data-pilha-de="listo" aria-hidden="true">
+    <figure class="tp tp--foto"><img src="./img/fotos/listo.webp" alt="" loading="lazy" decoding="async" width="900" height="675"></figure>
+    <div class="tp tp--aviso">
+      <p class="rot tp__cab"><span>MILO'S 3D</span><span>ahora</span></p>
+      <p class="tp__msg">¡Tu pedido ya está listo! 🤖 Quedó precioso, ¿cuándo pasas por él?</p>
+    </div>
+  </div>
+</section>
+
+    <!-- La colección: el abanico de tarjetas (isla React) y, debajo, el selector de mundos (isla React). -->
+<section class="galeria" id="galeria" data-cena data-tema="escuro">
+  <h2 class="rot galeria__rotulo">La colección</h2>
+  <p class="galeria__frase">Cada campaña se imprime en todos los colores. Abre el abanico.</p>
+  <div class="galeria__isla" id="isla-abanico"></div>
+  <h3 class="rot galeria__rotulo galeria__rotulo--sel">Elige tu mundo</h3>
+  <div class="galeria__sel" id="isla-selector"></div>
+</section>
+
+    <!-- La familia: la sección clara, con el borde de arriba en arco. El robotito Milo, enorme, sigue por detrás de la
+     fila de objetos de la tienda (la sección siguiente sube por encima del pie de la imagen). -->
+<section class="casa" id="casa" data-cena>
+  <div class="casa__cor" aria-hidden="true"><i data-cor-a></i><i data-cor-b></i></div>
+  <h2 class="casa__titulo">Un taller de una familia <br>enamorada de la impresión 3D</h2>
+  <div class="casa__meio">
+    <p class="rot casa__e">MILO'S 3D nació en casa, con una impresora y muchas ganas: papá cotiza e imprime, mamá hace las fotos y los flyers, y Milo — que le da nombre a todo esto — aprueba cada juguete antes de que salga.</p>
+    <figure class="casa__foto">
+      <img src="./img/donas.webp" srcset="./img/donas-p.webp 749w, ./img/donas.webp 1294w" sizes="(max-width: 760px) 96vw, 56vw" width="1294" height="1900" alt="Milo, el robotito azul y morado de MILO'S 3D, con su M gigante y sus estrellas" loading="lazy" decoding="async">
+    </figure>
+    <div class="casa__d">
+      <p class="rot">Cada pieza se imprime en nuestro taller en Querétaro y la revisamos a mano antes de entregarla. Si algo no nos encanta, se imprime de nuevo.</p>
+      <a class="rot sub" href="#agendar">Hacer un pedido</a>
+    </div>
+  </div>
+</section>
+
+    <!-- La tienda: segunda fila de objetos, con el mismo hover de color del hero. Sube por encima del pie del retrato.
+     Los objetos siguen el diseño del hero (--dx, --dy, --h desde el centro de la vitrina; --mdx, --mdy, --mh
+     en vertical). -->
+<section class="loja" id="loja" data-cena>
+  <div class="loja__cor" aria-hidden="true"><i data-cor-a></i><i data-cor-b></i></div>
+  <div class="vitrine" data-vitrine>
+    <button class="obj" type="button" data-obj="lapiz" data-rotulo="Lápiz|gigante" data-cor="3" data-prof="10"
+      style="--dx:-585; --dy:-6; --h:400; --ar:0.4004; --z:2; --mdx:-132; --mdy:-78; --mh:200">
+      <img src="./img/objetos/lapiz.webp" srcset="./img/objetos/lapiz-p.webp 224w, ./img/objetos/lapiz.webp 370w" sizes="(max-width: 760px) 32vw, 18vw" alt="" loading="lazy" decoding="async" draggable="false">
+      <span class="sr">Lápiz gigante</span>
+    </button>
+    <button class="obj" type="button" data-obj="llavero" data-rotulo="Llaveros|con nombre" data-cor="1" data-prof="16"
+      style="--dx:-372; --dy:86; --h:380; --ar:0.2028; --z:3; --mdx:-18; --mdy:-158; --mh:180">
+      <img src="./img/objetos/llavero.webp" srcset="./img/objetos/llavero-p.webp 114w, ./img/objetos/llavero.webp 191w" sizes="(max-width: 760px) 34vw, 19vw" alt="" loading="lazy" decoding="async" draggable="false">
+      <span class="sr">Llaveros con nombre</span>
+    </button>
+    <button class="obj" type="button" data-obj="slinky" data-rotulo="Slinkys" data-cor="6" data-prof="12"
+      style="--dx:-170; --dy:-92; --h:230; --ar:1.0275; --z:2; --mdx:-108; --mdy:104; --mh:112">
+      <img src="./img/objetos/slinky.webp" srcset="./img/objetos/slinky-p.webp 560w" sizes="(max-width: 760px) 36vw, 19vw" alt="" loading="lazy" decoding="async" draggable="false">
+      <span class="sr">Slinkys</span>
+    </button>
+    <button class="obj" type="button" data-obj="crayolas" data-rotulo="Porta-|crayolas" data-cor="4" data-prof="20"
+      style="--dx:34; --dy:62; --h:280; --ar:1.589; --z:4; --mdx:6; --mdy:10; --mh:140">
+      <img src="./img/objetos/crayolas.webp" srcset="./img/objetos/crayolas-p.webp 560w, ./img/objetos/crayolas.webp 607w" sizes="(max-width: 760px) 38vw, 20vw" alt="" loading="lazy" decoding="async" draggable="false">
+      <span class="sr">Portacrayolas</span>
+    </button>
+    <button class="obj" type="button" data-obj="mantequilla" data-rotulo="Para tu|cocina" data-cor="5" data-prof="26"
+      style="--dx:226; --dy:162; --h:200; --ar:1.4554; --z:5; --mdx:128; --mdy:48; --mh:100">
+      <img src="./img/objetos/mantequilla.webp" srcset="./img/objetos/mantequilla-p.webp 560w, ./img/objetos/mantequilla.webp 652w" sizes="(max-width: 760px) 30vw, 15vw" alt="" loading="lazy" decoding="async" draggable="false">
+      <span class="sr">Para tu cocina</span>
+    </button>
+    <button class="obj" type="button" data-obj="bote" data-rotulo="Edición|Halloween" data-cor="1" data-prof="14"
+      style="--dx:338; --dy:-84; --h:330; --ar:0.7453; --z:3; --mdx:122; --mdy:-116; --mh:176">
+      <img src="./img/objetos/bote.webp" srcset="./img/objetos/bote-p.webp 417w, ./img/objetos/bote.webp 474w" sizes="(max-width: 760px) 34vw, 18vw" alt="" loading="lazy" decoding="async" draggable="false">
+      <span class="sr">Edición Halloween</span>
+    </button>
+    <button class="obj" type="button" data-obj="jarra" data-rotulo="Jarras y|termos" data-cor="2" data-prof="9"
+      style="--dx:592; --dy:14; --h:380; --ar:0.6898; --z:4; --mdx:120; --mdy:168; --mh:160">
+      <img src="./img/objetos/jarra.webp" srcset="./img/objetos/jarra-p.webp 386w, ./img/objetos/jarra.webp 487w" sizes="(max-width: 760px) 28vw, 17vw" alt="" loading="lazy" decoding="async" draggable="false">
+      <span class="sr">Jarras y termos</span>
+    </button>
+  </div>
+  <p class="rot loja__pe">Imprimimos fidgets, juguetes, decoración y lo que tu fiesta pida. <br>Lo que no veas aquí, mándanos la foto y te lo cotizamos.</p>
+</section>
+
+    <!-- Pedidos reales: el tendedero de polaroids (isla React), sobre la sección clara. -->
+<section class="momentos" id="momentos" data-cena>
+  <h2 class="rot momentos__rotulo">Pedidos reales</h2>
+  <div class="momentos__isla" id="isla-polaroid"></div>
+</section>
+
+    <!-- Pedir: el cierre. El pedido es una frase con espacios en blanco, en la misma letra de los párrafos de la página;
+     enviar abre el WhatsApp del negocio con la frase lista (motion/agendar.js; el número está en src/config.js). -->
+<section class="agendar" id="agendar" data-cena data-fecho data-tema="escuro">
+  <h2 class="rot agendar__rotulo">Hacer un pedido</h2>
+  <form class="recado" data-recado novalidate>
+    <p class="recado__frase">
+      ¡Hola, MILO'S 3D! Soy
+      <label class="campo"><span class="sr">Tu nombre</span><input type="text" name="nome" placeholder="tu nombre" autocomplete="given-name" autocapitalize="words" enterkeyhint="next" required></label>
+      y quiero pedir
+      <label class="campo campo--escolha"><span class="sr">Qué quieres pedir</span><select name="servico">
+        <option>fidget clickers</option>
+        <option>una pulsera gigante</option>
+        <option>un juguete</option>
+        <option>decoración de temporada</option>
+        <option>una pieza personalizada</option>
+      </select></label>
+      con el nombre
+      <label class="campo"><span class="sr">El nombre que llevará la pieza</span><input type="text" name="bicho" placeholder="el nombre" autocapitalize="words" enterkeyhint="done" required></label>,
+      para
+      <label class="campo campo--escolha"><span class="sr">Para qué ocasión</span><select name="especie">
+        <option>una fiesta</option>
+        <option>un regalo</option>
+        <option>mi colección</option>
+        <option>mi negocio</option>
+      </select></label>.
+      ¿Puede ser
+      <label class="campo campo--escolha"><span class="sr">Cuándo</span><select name="quando">
+        <option>esta semana</option>
+        <option>la próxima semana</option>
+        <option>el fin de semana</option>
+        <option>cuando haya lugar</option>
+      </select></label>?
+    </p>
+    <div class="recado__pe">
+      <button class="pilula pilula--cta recado__enviar" type="submit"><span class="pilula__txt"><span>Escribir por WhatsApp</span><span aria-hidden="true">Escribir por WhatsApp</span></span></button>
+      <p class="rot recado__aviso" role="status" aria-live="polite"></p>
+    </div>
+  </form>
+
+  <footer class="rodape">
+    <p class="rot">Querétaro, México<br>envíos a todo el país</p>
+    <p class="rot">Pedidos todos los días<br>por WhatsApp</p>
+    <p class="rot"><a class="sub" href="#agendar" data-whats>+52 442 783 1563</a><br><a class="sub" href="./catalogo.html">Catálogo y precios</a></p>
+    <p class="rot rodape__marca">© 2026 MILO'S 3D<br>Impresión 3D en Querétaro</p>
+  </footer>
+  <!-- el último bloque de la página: aquí la fila de objetos del hero vuelve por los lados y cierra la página como
+       empezó (motion/objetos.js) -->
+  <div class="volta" data-volta aria-hidden="true"></div>
+</section>
+
+  </main>
+  <!-- Los objetos del hero: una capa fija a la pantalla, encima de la página. Cada uno es un producto de MILO'S 3D.
+     Posición en el hero en unidades del diseño (1440 × 824), desde el centro de la pantalla: --dx, --dy y la altura --h
+     (en el celular, 390 × 760: --mdx, --mdy, --mh). --ar es la proporción de la imagen (ancho ÷ alto).
+     Al desplazarse, cada uno sale por un lado (data-lado) hasta la altura --ey (--mey en el celular).
+     data-rotulo es el texto del rótulo del cursor ("|" corta la línea); data-cor, el color que toma el fondo (--pop-N);
+     data-vai, la tarjeta de servicio a la que lleva el clic. -->
+<div class="objetos" data-objetos>
+  <button class="obj" type="button" data-obj="squspi" data-vai="fidgets" data-rotulo="Spinners|anti-estrés" data-cor="2" data-lado="-1" data-prof="10"
+    style="--dx:-362; --dy:-112; --h:240; --ar:0.9466; --ey:-100; --z:1; --mdx:-121; --mdy:-220; --mh:120; --mey:-90">
+    <img src="./img/objetos/squspi.webp" srcset="./img/objetos/squspi-p.webp 443w" sizes="(max-width: 760px) 34vw, 19vw" alt="" decoding="async" draggable="false">
+    <span class="sr">Spinners anti-estrés</span>
+  </button>
+  <button class="obj" type="button" data-obj="dino" data-vai="juguetes" data-rotulo="Amigo|Dino" data-cor="1" data-lado="-1" data-prof="16"
+    style="--dx:-588; --dy:34; --h:430; --ar:0.6607; --ey:250; --z:2; --mdx:-123; --mdy:15; --mh:230; --mey:210">
+    <img src="./img/objetos/dino.webp" srcset="./img/objetos/dino-p.webp 370w, ./img/objetos/dino.webp 555w" sizes="(max-width: 760px) 34vw, 18vw" alt="" decoding="async" fetchpriority="high" draggable="false">
+    <span class="sr">Amigo Dino</span>
+  </button>
+  <button class="obj" type="button" data-obj="mochi" data-vai="juguetes" data-rotulo="Kawaii y|squishys" data-cor="5" data-lado="-1" data-prof="22"
+    style="--dx:-262; --dy:118; --h:250; --ar:1.0189; --ey:70; --z:3; --mdx:-5; --mdy:122; --mh:140; --mey:60">
+    <img src="./img/objetos/mochi.webp" srcset="./img/objetos/mochi-p.webp 486w" sizes="(max-width: 760px) 38vw, 20vw" alt="" decoding="async" fetchpriority="high" draggable="false">
+    <span class="sr">Kawaii y squishys</span>
+  </button>
+  <button class="obj" type="button" data-obj="tamagotchi" data-vai="fidgets" data-rotulo="Fidgets|retro" data-cor="3" data-lado="1" data-prof="12"
+    style="--dx:276; --dy:-134; --h:290; --ar:0.77; --ey:20; --z:2; --mdx:126; --mdy:-210; --mh:140; --mey:10">
+    <img src="./img/objetos/tamagotchi.webp" srcset="./img/objetos/tamagotchi-p.webp 431w, ./img/objetos/tamagotchi.webp 462w" sizes="(max-width: 760px) 34vw, 20vw" alt="" decoding="async" draggable="false">
+    <span class="sr">Fidgets retro</span>
+  </button>
+  <button class="obj" type="button" data-obj="cassette" data-vai="personalizados" data-rotulo="Deco|retro" data-cor="4" data-lado="1" data-prof="18"
+    style="--dx:58; --dy:150; --h:210; --ar:1.3717; --ey:-330; --z:4; --mdx:10; --mdy:-62; --mh:110; --mey:-300">
+    <img src="./img/objetos/cassette.webp" srcset="./img/objetos/cassette-p.webp 560w, ./img/objetos/cassette.webp 620w" sizes="(max-width: 760px) 44vw, 24vw" alt="" decoding="async" fetchpriority="high" draggable="false">
+    <span class="sr">Decoración retro</span>
+  </button>
+  <button class="obj" type="button" data-obj="pulsera" data-vai="pulseras" data-rotulo="Pulseras|gigantes" data-cor="2" data-lado="-1" data-prof="14"
+    style="--dx:-28; --dy:-84; --h:372; --ar:0.5886; --ey:-340; --z:5; --mdx:4; --mdy:-190; --mh:190; --mey:-310">
+    <img src="./img/objetos/pulsera.webp" srcset="./img/objetos/pulsera-p.webp 330w, ./img/objetos/pulsera.webp 525w" sizes="(max-width: 760px) 38vw, 20vw" alt="" decoding="async" fetchpriority="high" draggable="false">
+    <span class="sr">Pulseras gigantes</span>
+  </button>
+  <button class="obj" type="button" data-obj="renos" data-vai="temporada" data-rotulo="Edición|navideña" data-cor="3" data-lado="1" data-prof="20"
+    style="--dx:468; --dy:92; --h:260; --ar:1.5569; --ey:330; --z:4; --mdx:126; --mdy:-35; --mh:120; --mey:280">
+    <img src="./img/objetos/renos.webp" srcset="./img/objetos/renos-p.webp 560w, ./img/objetos/renos.webp 629w" sizes="(max-width: 760px) 40vw, 24vw" alt="" decoding="async" fetchpriority="high" draggable="false">
+    <span class="sr">Edición navideña</span>
+  </button>
+  <button class="obj" type="button" data-obj="torre" data-vai="fidgets" data-rotulo="Fidget|Clickers" data-cor="1" data-lado="1" data-prof="9"
+    style="--dx:616; --dy:-72; --h:400; --ar:0.2775; --ey:-170; --z:5; --mdx:128; --mdy:140; --mh:200; --mey:-150">
+    <img src="./img/objetos/torre.webp" srcset="./img/objetos/torre-p.webp 155w, ./img/objetos/torre.webp 237w" sizes="(max-width: 760px) 32vw, 18vw" alt="" decoding="async" draggable="false">
+    <span class="sr">Fidget Clickers</span>
+  </button>
+  <button class="obj" type="button" data-obj="sacapuntas" data-vai="personalizados" data-rotulo="Para tu|escritorio" data-cor="6" data-lado="1" data-prof="26"
+    style="--dx:246; --dy:190; --h:200; --ar:0.4499; --ey:300; --z:6; --mdx:70; --mdy:62; --mh:100; --mey:260">
+    <img src="./img/objetos/sacapuntas.webp" srcset="./img/objetos/sacapuntas-p.webp 252w, ./img/objetos/sacapuntas.webp 368w" sizes="(max-width: 760px) 26vw, 14vw" alt="" decoding="async" draggable="false">
+    <span class="sr">Para tu escritorio</span>
+  </button>
+</div>
+
+  <div class="rotulo" aria-hidden="true"><span class="rotulo__txt"></span></div>
 </body>
 </html>
