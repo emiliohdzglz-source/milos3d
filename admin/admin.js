@@ -2080,14 +2080,20 @@ function venderTerminado(id, cantidad = 1) {
 const NOMBRES_PUBLICOS = [
   [/\blego\b/i, (n) => n.replace(/\blego\b/i, "de bloques")],
   [/\bstabilo\b/i, () => "Estuchera para plumones"],
-  [/\bhuntrix\b/i, (n) => n.replace(/\bhuntrix\b/i, "de cazadora")]
+  [/\bhuntrix\b/i, (n) => n.replace(/\bhuntrix\b/i, "de cazadora")],
+  [/\btamagotchi\b/i, (n) => n.replace(/\btamagotchi\b/i, "Mascota virtual")],
+  [/\bowala\b/i, (n) => n.replace(/\bowala\b/i, "").trim() + " para termo"]
 ];
 
 function nombrePublico(nombre) {
   const regla = NOMBRES_PUBLICOS.find(([re]) => re.test(nombre));
   if (!regla) return { nombre, cambiado: false };
+  // Quitar la marca puede dejar la frase empezando en minúscula
+  // ("owala porta lipstick" → "porta lipstick para termo"), y así
+  // se vería en la tienda.
   const limpio = regla[1](nombre).replace(/\s{2,}/g, " ").trim();
-  return { nombre: tituloColor(limpio), cambiado: true, antes: nombre };
+  const conMayuscula = limpio.charAt(0).toUpperCase() + limpio.slice(1);
+  return { nombre: tituloColor(conMayuscula), cambiado: true, antes: nombre };
 }
 
 function fichaDesdeTerminado(id) {
