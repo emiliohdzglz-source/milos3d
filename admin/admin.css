@@ -239,6 +239,25 @@ textarea { resize: vertical; line-height: 1.45; }
 .pz.vacia .pz-n { color: var(--dim); }
 .pz:active { border-color: var(--cyan); }
 #inv-color-hex { width: 52px; padding: 4px; margin-top: 0; }
+
+/* ---------- Taller ---------- */
+.taller { margin-bottom: 14px; }
+.taller-maqs { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px; }
+.taller-maq {
+  display: flex; justify-content: space-between; align-items: baseline; gap: 8px;
+  background: rgba(4,8,20,.5); border: 1px solid var(--border);
+  border-radius: 10px; padding: 9px 12px; font-size: 14px;
+}
+.taller-cola { margin-top: 8px; display: grid; gap: 6px; }
+.taller-job {
+  font-size: 14px; padding: 8px 11px; border-radius: 10px;
+  background: rgba(76,201,255,.05); border: 1px solid var(--border);
+}
+.taller-job small { display: block; margin-top: 2px; }
+.badge.enviando { background: rgba(255,176,32,.15); color: var(--warn); }
+.badge.imprimiendo { background: rgba(76,201,255,.15); color: var(--cyan); }
+.badge.terminado { background: rgba(61,220,151,.15); color: var(--ok); }
+.badge.error { background: rgba(255,95,109,.15); color: var(--bad); }
 .empty { text-align: center; color: var(--dim); padding: 40px 20px; font-size: 15px; }
 
 .list-mini { display: grid; gap: 8px; margin-bottom: 12px; }

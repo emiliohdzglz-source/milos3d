@@ -9,6 +9,7 @@
  *   MP_WEBHOOK_SECRET  — Clave secreta del webhook (opcional pero recomendada)
  *   GH_TOKEN           — Token de GitHub que publica en el sitio (2 pasos)
  *   TOTP_<NOMBRE>      — Semilla base32 de cada persona (TOTP_ALE, TOTP_EMILIOPAPA…)
+ *   TALLER_CLAVE       — Clave compartida entre el panel y el puente de casa
  *
  * Variables (en wrangler.toml):
  *   ORIGENES           — dominios permitidos, separados por coma
@@ -23,6 +24,10 @@
  *   GET  /estado?folio=1001     ¿ya pagó?
  *   POST /webhook               avisos de Mercado Pago
  *   POST /panel/token           entrega el token de GitHub contra un código TOTP
+ *   POST /taller/encolar        el panel manda un trabajo a una impresora
+ *   GET  /taller/pendientes     el puente de casa recoge lo que hay que imprimir
+ *   POST /taller/reportar       el puente dice cómo le fue y cómo va la máquina
+ *   GET  /taller/trabajos       el panel consulta la cola y el estado de las máquinas
  *
  * Sólo las personas de la constante ADMINS (más abajo) pueden recibir el token.
  * Esa lista se cambia editando este archivo y volviendo a publicar el Worker.
@@ -398,6 +403,120 @@ async function tokenDelPanel(request, env) {
   return json({ token: env.GH_TOKEN, expira: 0 });
 }
 
+/* ==========================================================
+   TALLER — la cola de impresión
+   ----------------------------------------------------------
+   El panel vive en milos3d.com (HTTPS) y la impresora vive en
+   la red de la casa. Un navegador no puede hablarle a una
+   dirección local desde una página segura, y abrir un puerto
+   del router sería peor. Así que nadie entra a la casa: un
+   programita (el puente) corre ahí, pregunta hacia afuera cada
+   pocos segundos si hay algo que imprimir, y reporta. Todo es
+   tráfico de salida; el router se queda cerrado.
+
+   Los trabajos viven en el KV con caducidad: esto es un buzón,
+   no un historial.
+   ========================================================== */
+const TRAB_TTL = 60 * 60 * 24 * 7;     // una semana y se olvidan
+const TRAB_MAX = 40;                   // cuántos devuelve el panel
+
+const claveOk = (env, dada) => {
+  const buena = env.TALLER_CLAVE || "";
+  if (!buena || !dada) return false;
+  return igualesEnTiempoFijo(String(dada), buena);
+};
+
+const idTrabajo = () =>
+  `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+
+async function leerTrabajos(env) {
+  if (!env.PAGOS) return [];
+  const lista = await env.PAGOS.list({ prefix: "taller:trab:" });
+  const trabajos = await Promise.all(
+    lista.keys.map(k => env.PAGOS.get(k.name).then(v => { try { return JSON.parse(v); } catch { return null; } }))
+  );
+  return trabajos.filter(Boolean).sort((a, b) => (b.creado || "").localeCompare(a.creado || ""));
+}
+
+const guardarTrabajo = (env, t) =>
+  env.PAGOS.put(`taller:trab:${t.id}`, JSON.stringify(t), { expirationTtl: TRAB_TTL });
+
+/* ---------- El panel encola ---------- */
+async function tallerEncolar(request, env) {
+  if (!env.PAGOS) return json({ error: "El servicio no tiene dónde guardar la cola." }, 503);
+  let b = {};
+  try { b = await request.json(); } catch { /* vacío */ }
+  if (!claveOk(env, b.clave)) return json({ error: "Clave del taller incorrecta." }, 403);
+
+  const archivo = String(b.archivo || "").trim().slice(0, 200);
+  const maquina = String(b.maquina || "").trim().slice(0, 40);
+  if (!archivo || !maquina) return json({ error: "Faltan la máquina y el archivo." }, 400);
+  // El puente va a buscar este nombre dentro de SU carpeta. Que no se
+  // pueda pedir nada de fuera: sin rutas, sin subir de directorio.
+  if (/[\\/]|\.\./.test(archivo)) return json({ error: "El archivo no puede llevar carpetas." }, 400);
+
+  const t = {
+    id: idTrabajo(),
+    maquina, archivo,
+    pedido: String(b.pedido || "").slice(0, 40),
+    quien: String(b.quien || "").slice(0, 40),
+    estado: "pendiente",
+    creado: new Date().toISOString(),
+    detalle: ""
+  };
+  await guardarTrabajo(env, t);
+  return json({ ok: true, id: t.id });
+}
+
+/* ---------- El puente recoge ---------- */
+async function tallerPendientes(url, env) {
+  if (!env.PAGOS) return json({ error: "El servicio no tiene cola." }, 503);
+  if (!claveOk(env, url.searchParams.get("clave"))) return json({ error: "Clave del taller incorrecta." }, 403);
+  const maquina = url.searchParams.get("maquina");
+  const todos = await leerTrabajos(env);
+  const mios = todos.filter(t => t.estado === "pendiente" && (!maquina || t.maquina === maquina));
+  return json({ trabajos: mios.reverse() });   // los más viejos primero: es una cola
+}
+
+/* ---------- El puente reporta ---------- */
+async function tallerReportar(request, env) {
+  if (!env.PAGOS) return json({ error: "El servicio no tiene cola." }, 503);
+  let b = {};
+  try { b = await request.json(); } catch { /* vacío */ }
+  if (!claveOk(env, b.clave)) return json({ error: "Clave del taller incorrecta." }, 403);
+
+  // Estado de la máquina, aunque no haya trabajo de por medio.
+  if (b.impresora && b.maquina) {
+    await env.PAGOS.put(`taller:maq:${b.maquina}`,
+      JSON.stringify({ ...b.impresora, maquina: b.maquina, visto: new Date().toISOString() }),
+      { expirationTtl: 60 * 60 * 24 });
+  }
+
+  if (b.id) {
+    const raw = await env.PAGOS.get(`taller:trab:${b.id}`);
+    if (!raw) return json({ error: "Ese trabajo ya no existe." }, 404);
+    const t = JSON.parse(raw);
+    const validos = ["pendiente", "enviando", "imprimiendo", "terminado", "error"];
+    if (b.estado && validos.includes(b.estado)) t.estado = b.estado;
+    if (b.detalle != null) t.detalle = String(b.detalle).slice(0, 300);
+    t.actualizado = new Date().toISOString();
+    await guardarTrabajo(env, t);
+  }
+  return json({ ok: true });
+}
+
+/* ---------- El panel consulta ---------- */
+async function tallerTrabajos(url, env) {
+  if (!env.PAGOS) return json({ error: "El servicio no tiene cola." }, 503);
+  if (!claveOk(env, url.searchParams.get("clave"))) return json({ error: "Clave del taller incorrecta." }, 403);
+  const trabajos = (await leerTrabajos(env)).slice(0, TRAB_MAX);
+  const lista = await env.PAGOS.list({ prefix: "taller:maq:" });
+  const maquinas = (await Promise.all(
+    lista.keys.map(k => env.PAGOS.get(k.name).then(v => { try { return JSON.parse(v); } catch { return null; } }))
+  )).filter(Boolean);
+  return json({ trabajos, maquinas });
+}
+
 /* ---------- Router ---------- */
 export default {
   async fetch(request, env) {
@@ -416,8 +535,19 @@ export default {
           webhookFirmado: !!env.MP_WEBHOOK_SECRET,
           historial: !!env.PAGOS,
           panel: !!env.GH_TOKEN,
+          taller: !!(env.TALLER_CLAVE && env.PAGOS),
           ...estado2FA(env)
         }, 200, cabeceras);
+      }
+
+      if (url.pathname.startsWith("/taller/")) {
+        const ruta = url.pathname.slice(8);
+        let r = null;
+        if (ruta === "encolar" && request.method === "POST") r = await tallerEncolar(request, env);
+        else if (ruta === "pendientes" && request.method === "GET") r = await tallerPendientes(url, env);
+        else if (ruta === "reportar" && request.method === "POST") r = await tallerReportar(request, env);
+        else if (ruta === "trabajos" && request.method === "GET") r = await tallerTrabajos(url, env);
+        if (r) return new Response(r.body, { status: r.status, headers: { ...Object.fromEntries(r.headers), ...cabeceras } });
       }
 
       if (url.pathname === "/panel/token" && request.method === "POST") {

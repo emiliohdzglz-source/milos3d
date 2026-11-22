@@ -374,6 +374,26 @@ cliente. Sólo le das enviar.
 > La lista también avisa por renglón: *entrega HOY*, *entrega mañana*,
 > *atrasado 2 días*.
 
+## 🖨️ Mandar a imprimir desde el panel
+
+En la ficha de un pedido aparece **🖨️ Mandar a imprimir** cuando el taller
+está configurado. Escribes el nombre del archivo ya rebanado y se va a la
+cola; arriba, en Pedidos, se ve qué está haciendo cada máquina.
+
+El panel **no le habla a la impresora**: le deja el recado al servicio, y un
+programita que corre en casa (el *puente*) lo recoge y se lo manda. Por eso
+funciona desde cualquier lado, aunque no estés en la casa.
+
+Hoy atiende **la Snapmaker U1**. Las Bambu usan otro protocolo que exige
+ponerlas en Modo Desarrollador y perder Bambu Handy fuera de casa; esa
+decisión está pendiente.
+
+Cómo se instala y se arranca: **`taller/README.md`**.
+
+> El puente está escrito contra la documentación de Moonraker y probado contra
+> un simulador, pero **nunca se ha conectado a una U1 de verdad**. La primera
+> vez, prueba con una pieza chica y quédate mirando.
+
 ## 🧯 Qué protege esto y qué no
 
 Para que no te sorprenda nada:
