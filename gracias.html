@@ -7,46 +7,59 @@
   <meta name="robots" content="noindex">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&family=Rajdhani:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css">
-  <link rel="icon" href="assets/logo.webp" type="image/webp">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400..900&display=swap" rel="stylesheet">
+  <link rel="icon" href="favicon.png" type="image/png">
   <style>
     /* Página de una sola cosa: decirle al cliente qué pasó con su pago
-       y dejarle un camino claro para hablar con nosotros. */
+       y dejarle un camino claro para hablar con nosotros. Autosuficiente,
+       con la piel de la casa nueva (crema, tinta, Inter y pastillas). */
+    :root {
+      --fundo: #f2efe9; --tinta: #16131f; --apagado: #5c5a64;
+      --linea: rgba(22, 19, 31, 0.14); --pop: #ffd43b;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; background: var(--fundo); color: var(--tinta);
+      font-family: 'Inter', system-ui, -apple-system, sans-serif;
+      font-optical-sizing: auto; -webkit-font-smoothing: antialiased;
+    }
     .gr-wrap {
-      min-height: 100vh; display: flex; align-items: center; justify-content: center;
+      min-height: 100svh; display: flex; align-items: center; justify-content: center;
       padding: 28px 20px;
     }
     .gr-card {
-      width: 100%; max-width: 460px; text-align: center;
-      background: rgba(10, 16, 32, .85); border: 1px solid rgba(76, 201, 255, .22);
-      border-radius: 18px; padding: 34px 26px;
-      box-shadow: 0 18px 60px rgba(0, 0, 0, .5);
+      width: 100%; max-width: 440px; text-align: center;
+      background: #fff; border: 1px solid var(--linea);
+      border-radius: 20px; padding: 34px 26px;
+      box-shadow: 0 24px 70px rgba(22, 19, 31, 0.14);
     }
-    .gr-logo { width: 78px; margin-bottom: 14px; }
-    .gr-icono { font-size: 50px; line-height: 1; margin-bottom: 10px; }
-    .gr-card h1 { font-family: 'Orbitron', sans-serif; font-size: 23px; margin: 0 0 10px; }
-    .gr-card p { font-size: 16px; line-height: 1.5; margin: 0 0 14px; color: #c3cde0; }
+    .gr-logo { width: 150px; margin: 0 auto 6px; display: block; filter: drop-shadow(0 10px 24px rgba(22, 19, 31, 0.16)); }
+    .gr-icono { font-size: 46px; line-height: 1; margin-bottom: 10px; }
+    .gr-card h1 { font-size: 24px; font-weight: 850; letter-spacing: -0.02em; margin: 0 0 10px; }
+    .gr-card p { font-size: 15.5px; line-height: 1.5; margin: 0 0 14px; color: var(--apagado); }
     .gr-folio {
-      display: inline-block; font-family: 'Orbitron', sans-serif; font-size: 18px;
-      background: rgba(76, 201, 255, .1); border: 1px solid rgba(76, 201, 255, .3);
-      border-radius: 10px; padding: 9px 16px; margin: 4px 0 18px; letter-spacing: 1px;
+      display: inline-block; font-size: 16px; font-weight: 800; letter-spacing: 0.04em;
+      background: var(--pop); border-radius: 999px;
+      padding: 8px 18px; margin: 4px 0 18px;
     }
     .gr-btn {
-      display: block; width: 100%; box-sizing: border-box; margin: 10px 0 0;
-      padding: 14px 18px; border-radius: 12px; border: 1px solid rgba(76, 201, 255, .35);
-      font-family: 'Rajdhani', sans-serif; font-size: 17px; font-weight: 600;
-      text-decoration: none; cursor: pointer;
+      display: flex; align-items: center; justify-content: center; width: 100%;
+      margin: 10px 0 0; padding: 13px 18px; border-radius: 999px;
+      font-size: 15px; font-weight: 700; text-decoration: none; cursor: pointer;
+      border: 1px solid var(--linea); color: var(--tinta);
+      transition: background 0.2s, color 0.2s, transform 0.15s;
     }
-    .gr-btn.primario { background: linear-gradient(135deg, #4cc9ff, #2d7ff9); color: #041020; border: 0; }
-    .gr-btn.fantasma { background: rgba(76, 201, 255, .06); color: #e8eefc; }
-    .gr-chico { font-size: 14px; color: #8a97ad; margin-top: 18px; }
+    .gr-btn:active { transform: scale(0.98); }
+    .gr-btn.primario { background: var(--tinta); color: var(--fundo); border-color: var(--tinta); }
+    .gr-btn.primario:hover { background: #2c2838; }
+    .gr-btn.fantasma:hover { background: var(--tinta); color: var(--fundo); }
+    .gr-chico { font-size: 13px; color: var(--apagado); margin-top: 18px; }
   </style>
 </head>
 <body>
   <div class="gr-wrap">
     <div class="gr-card">
-      <img src="assets/logo.webp" alt="MILO'S 3D" class="gr-logo" onerror="this.style.display='none'">
+      <img src="img/donas.webp" alt="MILO'S 3D" class="gr-logo" onerror="this.style.display='none'">
       <div class="gr-icono" id="gr-icono">🤖</div>
       <h1 id="gr-titulo">Revisando tu pago…</h1>
       <p id="gr-texto">Dame un segundo.</p>
