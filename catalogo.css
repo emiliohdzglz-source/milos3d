@@ -158,6 +158,20 @@ h1, h2, h3, h4 { line-height: 1.12; letter-spacing: -0.02em; margin: 0; }
 .btn-quote { width: 100%; }
 .product-promo { margin: 0; font-size: 13px; color: var(--tinta); background: var(--pop-1); border-radius: 10px; padding: 7px 10px; }
 
+/* Colores que hay listos hoy, bajo el producto de clickers (inventario publicado). */
+.stock-colores { margin: 2px 0 0; }
+.stock-dots { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+.stock-dot {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: 13px; padding: 4px 9px 4px 5px;
+  border: 1px solid var(--linea); border-radius: 999px;
+  background: var(--fundo);
+}
+.stock-dot i {
+  width: 13px; height: 13px; border-radius: 50%;
+  outline: 1px solid var(--linea); flex: 0 0 auto;
+}
+
 /* ---------- Proceso ---------- */
 .steps {
   display: grid; gap: 16px; max-width: 1280px; margin: 0 auto;
