@@ -118,7 +118,10 @@ function renderProducts() {
           <div class="product-foot">
             <div class="product-price" data-price>${money(p.paquetes?.length ? p.paquetes[0].precio : p.precio)} <small>${p.paquetes?.length ? "paquete" : "c/u"}</small></div>
             <button class="btn-add" data-hover data-add="${p.id}">+ Agregar</button>
-          </div>`}
+          </div>
+          ${p.promo?.lleva > p.promo?.paga
+            ? `<p class="product-promo">🎉 <b>${p.promo.lleva}×${p.promo.paga}</b> — lleva ${p.promo.lleva} y paga ${p.promo.paga}</p>`
+            : ""}`}
       </div>
     </article>
   `).join("");
@@ -179,11 +182,19 @@ function renderProducts() {
   refreshHoverTargets();
 }
 
+/* Los colores se guardan en hexadecimal porque así se pintan los
+   círculos, pero al cliente hay que decírselos por su nombre: en el
+   carrito y en el WhatsApp del pedido salía "#d93025", que no le dice
+   nada a nadie y encima se ve a medio terminar. */
 function colorName(hex) {
   const nombres = {
-    "#4a7c3a": "Verde militar", "#f2d33c": "Amarillo", "#8aa84f": "Verde/Amarillo"
+    "#1b1b1b": "Negro", "#d93025": "Rojo", "#4a7c3a": "Verde militar",
+    "#f2d33c": "Amarillo", "#4a90d9": "Azul", "#e91e78": "Rosa mexicano",
+    "#f7a8c4": "Rosa pastel", "#8e6bc8": "Morado", "#ff7a2f": "Naranja",
+    "#c0c8d8": "Gris", "#f2f2f2": "Blanco", "#4cc9ff": "Azul cielo",
+    "#8aa84f": "Verde/Amarillo"
   };
-  return nombres[hex] || hex;
+  return nombres[String(hex).toLowerCase()] || hex;
 }
 
 /* ---------- Carrito ---------- */
@@ -194,6 +205,59 @@ function cartKey(p, color, pack, nota) {
 function itemPrice(i) {
   if (i.custom) return i.custom.precio;
   return i.pack ? i.pack.precio : i.producto.precio;
+}
+
+/* ---------- Promociones de "lleva N y paga M" ----------
+   Vive en products.json, en cada producto:  "promo": { "lleva": 3, "paga": 2 }
+   Antes el 3×2 del Amigo Dino estaba escrito a mano en tres lugares
+   distintos —el carrito, el pago con tarjeta y el mensaje de WhatsApp—
+   y poner la misma promo en otro producto significaba copiarlo una
+   cuarta vez y confiar en que los cuatro dieran el mismo número. Ahora
+   la cuenta es una sola y los tres caminos la llaman.
+
+   Las piezas se cuentan sumando TODAS las líneas de ese producto: tres
+   bolas de tres colores distintos son tres bolas. Lo que se regala es
+   la más barata de ellas, que es lo que significa un 3×2. */
+function promosDelCarrito(items) {
+  const porProducto = new Map();
+  items.forEach(i => {
+    const p = i.producto;
+    if (!p?.promo || !(p.promo.lleva > p.promo.paga)) return;
+    const g = porProducto.get(p.id) || { producto: p, qty: 0, precioMin: Infinity };
+    g.qty += i.qty;
+    g.precioMin = Math.min(g.precioMin, itemPrice(i));
+    porProducto.set(p.id, g);
+  });
+
+  const detalles = [];
+  porProducto.forEach(g => {
+    const { lleva, paga } = g.producto.promo;
+    const gratis = Math.floor(g.qty / lleva) * (lleva - paga);
+    const faltan = gratis > 0 ? 0 : lleva - (g.qty % lleva);
+    detalles.push({
+      producto: g.producto, etiqueta: `${lleva}×${paga}`,
+      qty: g.qty, gratis, faltan,
+      monto: gratis * (g.precioMin === Infinity ? 0 : g.precioMin)
+    });
+  });
+  const descuento = detalles.reduce((s, d) => s + d.monto, 0);
+  return { descuento, detalles };
+}
+
+/* El renglón que le dice al cliente qué se le aplicó, o cuántas le
+   faltan. Sin esto la promo existe pero nadie se entera a tiempo. */
+function notaPromo(detalles) {
+  const aplicadas = detalles.filter(d => d.gratis > 0);
+  if (aplicadas.length) {
+    return "🎉 " + aplicadas.map(d =>
+      `Promo ${d.etiqueta}: ${d.gratis} ${d.producto.nombre} GRATIS (−${money(d.monto)})`).join(" · ");
+  }
+  const cerca = detalles.filter(d => d.qty > 0);
+  if (cerca.length) {
+    const d = cerca[0];
+    return `Agrega ${d.faltan} ${d.producto.nombre} más y uno te sale GRATIS (${d.etiqueta})`;
+  }
+  return "";
 }
 
 function addToCart(p, color, pack, nota) {
@@ -266,16 +330,9 @@ function updateCartUI() {
     });
   }
 
-  // Total + promo 3x2 del Amigo Dino
-  const total = items.reduce((s, i) => s + itemPrice(i) * i.qty, 0);
-  const dinoQty = items.filter(i => i.producto.id === "amigo-dino").reduce((s, i) => s + i.qty, 0);
-  const gratis = Math.floor(dinoQty / 3);
-  const dino = PRODUCTOS.find(p => p.id === "amigo-dino");
-  const descuento = gratis * (dino ? dino.precio : 0);
+  const { total, descuento, detalles } = pedidoDelCarrito();
   $("#cart-total").textContent = money(total - descuento);
-  $("#cart-promo-note").textContent = gratis > 0
-    ? `🎉 Promo 3×2 aplicada: ${gratis} Amigo Dino GRATIS (−${money(descuento)})`
-    : (dinoQty > 0 ? `Agrega ${3 - (dinoQty % 3)} más y uno te sale GRATIS (3×2)` : "");
+  $("#cart-promo-note").textContent = notaPromo(detalles);
 
   refreshHoverTargets();
 }
@@ -286,11 +343,8 @@ function updateCartUI() {
 function pedidoDelCarrito() {
   const items = [...cart.values()];
   const total = items.reduce((s, i) => s + itemPrice(i) * i.qty, 0);
-  // Promo 3×2 del Amigo Dino: cada tercero sale gratis.
-  const dinoQty = items.filter(i => i.producto.id === "amigo-dino").reduce((s, i) => s + i.qty, 0);
-  const dino = PRODUCTOS.find(p => p.id === "amigo-dino");
-  const descuento = Math.floor(dinoQty / 3) * (dino ? dino.precio : 0);
-  return { items, total, descuento, aPagar: total - descuento };
+  const { descuento, detalles } = promosDelCarrito(items);
+  return { items, total, descuento, detalles, aPagar: total - descuento };
 }
 
 /* ---------- Pagar con tarjeta, sin pasar por WhatsApp ---------- */
@@ -359,12 +413,10 @@ function checkout() {
       msg += `   🪢 Cordón: ${c.metros} m\n`;
     }
   });
-  const total = items.reduce((s, i) => s + itemPrice(i) * i.qty, 0);
-  const dinoQty = items.filter(i => i.producto.id === "amigo-dino").reduce((s, i) => s + i.qty, 0);
-  const gratis = Math.floor(dinoQty / 3);
-  const dino = PRODUCTOS.find(p => p.id === "amigo-dino");
-  const descuento = gratis * (dino ? dino.precio : 0);
-  if (descuento > 0) msg += `\n🎉 Promo 3×2: −${money(descuento)}`;
+  const { total, descuento, detalles } = pedidoDelCarrito();
+  detalles.filter(d => d.gratis > 0).forEach(d => {
+    msg += `\n🎉 Promo ${d.etiqueta} ${d.producto.nombre}: ${d.gratis} gratis (−${money(d.monto)})`;
+  });
   msg += `\n*Total: ${money(total - descuento)}*\n\n`;
   msg += "Mi nombre es: \nMi ciudad es: ";
 

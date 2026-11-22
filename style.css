@@ -1000,3 +1000,16 @@ a.product-img { display: grid; }
   background: rgba(76, 201, 255, .18);
 }
 .cart-o::before { left: 0; } .cart-o::after { right: 0; }
+
+/* La promo debajo del precio: el badge de la esquina se lee al pasar
+   por la foto, pero la decisión de agregar al carrito se toma aquí. */
+.product-promo {
+  margin: 8px 0 0;
+  font-size: 14px;
+  color: #ffd98a;
+  background: rgba(255, 196, 92, .10);
+  border: 1px solid rgba(255, 196, 92, .28);
+  border-radius: 9px;
+  padding: 7px 10px;
+}
+.product-promo b { color: #ffc45c; }
