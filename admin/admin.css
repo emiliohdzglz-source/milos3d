@@ -540,3 +540,5 @@ textarea { resize: vertical; line-height: 1.45; }
 .tot .alerta { color: #ffb020; }
 .check { display: flex; align-items: center; gap: 9px; margin: 10px 0; }
 .check input { width: auto; }
+.ter-cero { opacity: .55; }
+.ter-cero b { color: #ff9f9f; }
